@@ -59,7 +59,6 @@ notification:notifications:read,
 davis:analyzers:read,
 app-engine:apps:run,
 app-engine:edge-connects:read,
-email:emails:send
 ```
 
 ### `readwrite-mine`
