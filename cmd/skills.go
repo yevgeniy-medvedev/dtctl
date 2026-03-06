@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -8,13 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/dynatrace-oss/dtctl/pkg/skills"
-)
-
-var (
-	skillsForAgent string // --for flag
-	skillsGlobal   bool   // --global flag
-	skillsYes      bool   // --yes flag (skip confirmation)
-	skillsList     bool   // --list flag
 )
 
 // skillsCmd is the parent command for AI assistant skill management.
@@ -27,9 +21,6 @@ Skill files teach your AI assistant how to use dtctl effectively.
 Supported agents: claude, copilot, cursor, opencode.
 
 Examples:
-  # Show available skills and detected agent
-  dtctl skills
-
   # Auto-detect agent and install skill file
   dtctl skills install
 
@@ -41,7 +32,7 @@ Examples:
 
   # Check what's installed
   dtctl skills status`,
-	RunE: runSkills,
+	RunE: requireSubcommand,
 }
 
 // skillsInstallCmd installs skill files for an AI coding assistant.
@@ -65,7 +56,7 @@ Examples:
   dtctl skills install --for claude --global
 
   # Overwrite existing file
-  dtctl skills install --for claude --yes
+  dtctl skills install --for claude --force
 
   # List supported agents
   dtctl skills install --list`,
@@ -107,6 +98,15 @@ Examples:
 	RunE: runSkillsStatus,
 }
 
+// agentCompletionFunc provides shell completion for the --for flag.
+func agentCompletionFunc(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+	var completions []string
+	for _, a := range skills.AllAgents() {
+		completions = append(completions, a.Name+"\t"+a.DisplayName)
+	}
+	return completions, cobra.ShellCompDirectiveNoFileComp
+}
+
 func init() {
 	rootCmd.AddCommand(skillsCmd)
 
@@ -115,64 +115,63 @@ func init() {
 	skillsCmd.AddCommand(skillsStatusCmd)
 
 	// Flags for install
-	skillsInstallCmd.Flags().StringVar(&skillsForAgent, "for", "", "install for a specific agent (claude, copilot, cursor, opencode)")
-	skillsInstallCmd.Flags().BoolVar(&skillsGlobal, "global", false, "install to user-wide location instead of project directory")
-	skillsInstallCmd.Flags().BoolVar(&skillsYes, "yes", false, "overwrite existing files without prompting")
-	skillsInstallCmd.Flags().BoolVar(&skillsList, "list", false, "list all supported agents")
+	skillsInstallCmd.Flags().String("for", "", "install for a specific agent (claude, copilot, cursor, opencode)")
+	skillsInstallCmd.Flags().Bool("global", false, "install to user-wide location instead of project directory")
+	skillsInstallCmd.Flags().Bool("force", false, "overwrite existing files without prompting")
+	skillsInstallCmd.Flags().Bool("list", false, "list all supported agents")
+	_ = skillsInstallCmd.RegisterFlagCompletionFunc("for", agentCompletionFunc)
 
 	// Flags for uninstall
-	skillsUninstallCmd.Flags().StringVar(&skillsForAgent, "for", "", "uninstall for a specific agent")
+	skillsUninstallCmd.Flags().String("for", "", "uninstall for a specific agent")
+	_ = skillsUninstallCmd.RegisterFlagCompletionFunc("for", agentCompletionFunc)
 
 	// Flags for status
-	skillsStatusCmd.Flags().StringVar(&skillsForAgent, "for", "", "check status for a specific agent")
+	skillsStatusCmd.Flags().String("for", "", "check status for a specific agent")
+	_ = skillsStatusCmd.RegisterFlagCompletionFunc("for", agentCompletionFunc)
 }
 
-// runSkills shows available skills and detected agent.
-func runSkills(cmd *cobra.Command, _ []string) error {
-	agent, detected := skills.DetectAgent()
+// skillsInstallAgentResult is the structured result for agent-mode output.
+type skillsInstallAgentResult struct {
+	Action string `json:"action"`
+	Agent  string `json:"agent"`
+	Path   string `json:"path"`
+	Scope  string `json:"scope"`
+}
 
-	fmt.Println("dtctl skill files for AI coding assistants")
-	fmt.Println()
+// skillsUninstallAgentResult is the structured result for agent-mode output.
+type skillsUninstallAgentResult struct {
+	Agent   string   `json:"agent"`
+	Removed []string `json:"removed"`
+}
 
-	if detected {
-		fmt.Printf("Detected agent: %s (via %s env)\n", agent.DisplayName, agent.EnvVar)
-	} else {
-		fmt.Println("No AI agent detected in current environment.")
-	}
+// skillsStatusAgentEntry is a single agent's status for agent-mode output.
+type skillsStatusAgentEntry struct {
+	Agent     string `json:"agent"`
+	Installed bool   `json:"installed"`
+	Path      string `json:"path,omitempty"`
+	Scope     string `json:"scope,omitempty"`
+}
 
-	fmt.Println()
-	fmt.Println("Supported agents:")
-	for _, a := range skills.AllAgents() {
-		marker := "  "
-		if detected && a.Name == agent.Name {
-			marker = "* "
-		}
-		fmt.Printf("  %s%-10s %s\n", marker, a.Name, a.DisplayName)
-	}
-
-	fmt.Println()
-	fmt.Println("Run 'dtctl skills install' to install skill files.")
-	fmt.Println("Run 'dtctl skills status' to check installation status.")
-
-	return nil
+// skillsListAgentEntry is a single agent's info for agent-mode --list output.
+type skillsListAgentEntry struct {
+	Name           string `json:"name"`
+	DisplayName    string `json:"display_name"`
+	ProjectPath    string `json:"project_path"`
+	SupportsGlobal bool   `json:"supports_global"`
 }
 
 // runSkillsInstall installs skill files.
-func runSkillsInstall(_ *cobra.Command, _ []string) error {
-	if skillsList {
-		fmt.Println("Supported agents:")
-		for _, a := range skills.AllAgents() {
-			globalNote := ""
-			if a.GlobalPath != "" {
-				globalNote = " (supports --global)"
-			}
-			fmt.Printf("  %-10s %s%s\n", a.Name, a.DisplayName, globalNote)
-			fmt.Printf("             Project path: %s\n", a.ProjectPath)
-		}
-		return nil
+func runSkillsInstall(cmd *cobra.Command, _ []string) error {
+	listFlag, _ := cmd.Flags().GetBool("list")
+	if listFlag {
+		return runSkillsList()
 	}
 
-	agent, err := resolveAgent(skillsForAgent)
+	forFlag, _ := cmd.Flags().GetString("for")
+	globalFlag, _ := cmd.Flags().GetBool("global")
+	forceFlag, _ := cmd.Flags().GetBool("force")
+
+	agent, err := resolveAgent(forFlag)
 	if err != nil {
 		return err
 	}
@@ -182,9 +181,27 @@ func runSkillsInstall(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to determine working directory: %w", err)
 	}
 
-	result, err := skills.Install(agent, baseDir, skillsGlobal, skillsYes)
+	result, err := skills.Install(agent, baseDir, globalFlag, forceFlag)
 	if err != nil {
 		return err
+	}
+
+	scope := "project"
+	if result.Global {
+		scope = "global"
+	}
+
+	if agentMode {
+		action := "installed"
+		if result.Replaced {
+			action = "updated"
+		}
+		return printAgentJSON(skillsInstallAgentResult{
+			Action: action,
+			Agent:  result.Agent.Name,
+			Path:   result.Path,
+			Scope:  scope,
+		})
 	}
 
 	if result.Replaced {
@@ -192,19 +209,42 @@ func runSkillsInstall(_ *cobra.Command, _ []string) error {
 	} else {
 		fmt.Printf("Installed %s skill file: %s\n", result.Agent.DisplayName, result.Path)
 	}
-
-	scope := "project"
-	if result.Global {
-		scope = "global"
-	}
 	fmt.Printf("Scope: %s\n", scope)
 
 	return nil
 }
 
+// runSkillsList lists all supported agents.
+func runSkillsList() error {
+	if agentMode {
+		var entries []skillsListAgentEntry
+		for _, a := range skills.AllAgents() {
+			entries = append(entries, skillsListAgentEntry{
+				Name:           a.Name,
+				DisplayName:    a.DisplayName,
+				ProjectPath:    a.ProjectPath,
+				SupportsGlobal: a.GlobalPath != "",
+			})
+		}
+		return printAgentJSON(entries)
+	}
+
+	fmt.Println("Supported agents:")
+	for _, a := range skills.AllAgents() {
+		globalNote := ""
+		if a.GlobalPath != "" {
+			globalNote = " (supports --global)"
+		}
+		fmt.Printf("  %-10s %s%s\n", a.Name, a.DisplayName, globalNote)
+		fmt.Printf("             Project path: %s\n", a.ProjectPath)
+	}
+	return nil
+}
+
 // runSkillsUninstall removes installed skill files.
-func runSkillsUninstall(_ *cobra.Command, _ []string) error {
-	agent, err := resolveAgent(skillsForAgent)
+func runSkillsUninstall(cmd *cobra.Command, _ []string) error {
+	forFlag, _ := cmd.Flags().GetString("for")
+	agent, err := resolveAgent(forFlag)
 	if err != nil {
 		return err
 	}
@@ -217,6 +257,13 @@ func runSkillsUninstall(_ *cobra.Command, _ []string) error {
 	removed, err := skills.Uninstall(agent, baseDir)
 	if err != nil {
 		return err
+	}
+
+	if agentMode {
+		return printAgentJSON(skillsUninstallAgentResult{
+			Agent:   agent.Name,
+			Removed: removed,
+		})
 	}
 
 	if len(removed) == 0 {
@@ -232,30 +279,47 @@ func runSkillsUninstall(_ *cobra.Command, _ []string) error {
 }
 
 // runSkillsStatus shows installation status.
-func runSkillsStatus(_ *cobra.Command, _ []string) error {
+func runSkillsStatus(cmd *cobra.Command, _ []string) error {
 	baseDir, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to determine working directory: %w", err)
 	}
 
-	if skillsForAgent != "" {
-		agent, err := resolveAgent(skillsForAgent)
+	forFlag, _ := cmd.Flags().GetString("for")
+
+	// Detect agent once, pass into print helpers
+	detectedAgent, detected := skills.DetectAgent()
+
+	if forFlag != "" {
+		agent, err := resolveAgent(forFlag)
 		if err != nil {
 			return err
 		}
 
 		result := skills.Status(agent, baseDir)
-		printStatus(result)
+		if agentMode {
+			return printAgentJSON(statusToAgentEntry(result))
+		}
+		printStatus(result, detectedAgent, detected)
 		return nil
 	}
 
 	// Show all agents
 	results := skills.StatusAll(baseDir)
+
+	if agentMode {
+		var entries []skillsStatusAgentEntry
+		for _, r := range results {
+			entries = append(entries, statusToAgentEntry(r))
+		}
+		return printAgentJSON(entries)
+	}
+
 	anyInstalled := false
 	for _, r := range results {
 		if r.Installed {
 			anyInstalled = true
-			printStatus(r)
+			printStatus(r, detectedAgent, detected)
 			fmt.Println()
 		}
 	}
@@ -268,10 +332,25 @@ func runSkillsStatus(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-// printStatus prints a single agent's status.
-func printStatus(r *skills.StatusResult) {
-	detectedAgent, detected := skills.DetectAgent()
+// statusToAgentEntry converts a StatusResult to the agent-mode JSON entry.
+func statusToAgentEntry(r *skills.StatusResult) skillsStatusAgentEntry {
+	entry := skillsStatusAgentEntry{
+		Agent:     r.Agent.Name,
+		Installed: r.Installed,
+	}
+	if r.Installed {
+		entry.Path = r.Path
+		scope := "project"
+		if r.Global {
+			scope = "global"
+		}
+		entry.Scope = scope
+	}
+	return entry
+}
 
+// printStatus prints a single agent's status in human-readable format.
+func printStatus(r *skills.StatusResult, detectedAgent skills.Agent, detected bool) {
 	fmt.Printf("Agent:     %s", r.Agent.DisplayName)
 	if detected && detectedAgent.Name == r.Agent.Name {
 		fmt.Printf(" (detected via %s env)", r.Agent.EnvVar)
@@ -312,4 +391,11 @@ func resolveAgent(forFlag string) (skills.Agent, error) {
 	}
 
 	return agent, nil
+}
+
+// printAgentJSON writes a value as indented JSON to stdout for agent-mode output.
+func printAgentJSON(v interface{}) error {
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(v)
 }

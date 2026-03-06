@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/dynatrace-oss/dtctl/pkg/aidetect"
@@ -26,6 +27,21 @@ var cursorTemplate string
 
 //go:embed templates/opencode.md
 var opencodeTemplate string
+
+// parsedTemplates holds pre-parsed templates keyed by agent name.
+// Populated by init() to catch syntax errors at startup.
+var parsedTemplates map[string]*template.Template
+
+func init() {
+	parsedTemplates = make(map[string]*template.Template, len(agents))
+	for _, a := range agents {
+		tmpl, err := template.New(a.Name).Parse(a.Template)
+		if err != nil {
+			panic(fmt.Sprintf("skills: failed to parse template for %s: %v", a.Name, err))
+		}
+		parsedTemplates[a.Name] = tmpl
+	}
+}
 
 // Agent represents a supported AI coding assistant.
 type Agent struct {
@@ -60,7 +76,7 @@ var agents = []Agent{
 	{
 		Name:        "copilot",
 		DisplayName: "GitHub Copilot",
-		ProjectPath: filepath.Join(".github", "copilot-instructions.md"),
+		ProjectPath: filepath.Join(".github", "instructions", "dtctl.instructions.md"),
 		GlobalPath:  "",
 		Template:    copilotTemplate,
 		EnvVar:      "GITHUB_COPILOT",
@@ -155,9 +171,9 @@ func Render(agent Agent) (string, error) {
 
 // RenderWithData renders an agent's template with custom data.
 func RenderWithData(agent Agent, data TemplateData) (string, error) {
-	tmpl, err := template.New(agent.Name).Parse(agent.Template)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse template for %s: %w", agent.DisplayName, err)
+	tmpl, ok := parsedTemplates[agent.Name]
+	if !ok {
+		return "", fmt.Errorf("no parsed template for agent %q", agent.Name)
 	}
 
 	var buf bytes.Buffer
@@ -181,7 +197,7 @@ func Install(agent Agent, baseDir string, global bool, overwrite bool) (*Install
 	replaced := false
 	if _, err := os.Stat(path); err == nil {
 		if !overwrite {
-			return nil, fmt.Errorf("skill file already exists at %s (use --yes to overwrite)", path)
+			return nil, fmt.Errorf("skill file already exists at %s (use --force to overwrite)", path)
 		}
 		replaced = true
 	}
@@ -209,33 +225,43 @@ func Install(agent Agent, baseDir string, global bool, overwrite bool) (*Install
 }
 
 // Uninstall removes installed skill files. It checks both project-local and
-// global locations and removes any that exist. Returns the paths that were removed.
+// global locations and removes any that exist. Returns the paths that were
+// successfully removed. If some removals fail, the successfully removed paths
+// are still returned alongside the error.
 func Uninstall(agent Agent, baseDir string) ([]string, error) {
 	var removed []string
+	var errs []string
 
 	// Check project-local
 	projectPath := filepath.Join(baseDir, agent.ProjectPath)
 	if _, err := os.Stat(projectPath); err == nil {
 		if err := os.Remove(projectPath); err != nil {
-			return nil, fmt.Errorf("failed to remove %s: %w", projectPath, err)
+			errs = append(errs, fmt.Sprintf("failed to remove %s: %v", projectPath, err))
+		} else {
+			removed = append(removed, projectPath)
 		}
-		removed = append(removed, projectPath)
 	}
 
 	// Check global
 	if agent.GlobalPath != "" {
 		home, err := os.UserHomeDir()
-		if err == nil {
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("failed to determine home directory: %v", err))
+		} else {
 			globalPath := filepath.Join(home, agent.GlobalPath)
 			if _, err := os.Stat(globalPath); err == nil {
 				if err := os.Remove(globalPath); err != nil {
-					return nil, fmt.Errorf("failed to remove %s: %w", globalPath, err)
+					errs = append(errs, fmt.Sprintf("failed to remove %s: %v", globalPath, err))
+				} else {
+					removed = append(removed, globalPath)
 				}
-				removed = append(removed, globalPath)
 			}
 		}
 	}
 
+	if len(errs) > 0 {
+		return removed, fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
 	return removed, nil
 }
 
@@ -252,10 +278,9 @@ func Status(agent Agent, baseDir string) *StatusResult {
 		}
 	}
 
-	// Check global
+	// Check global (best-effort: if home dir lookup fails, treat as not installed)
 	if agent.GlobalPath != "" {
-		home, err := os.UserHomeDir()
-		if err == nil {
+		if home, err := os.UserHomeDir(); err == nil {
 			globalPath := filepath.Join(home, agent.GlobalPath)
 			if _, err := os.Stat(globalPath); err == nil {
 				return &StatusResult{

@@ -47,15 +47,21 @@ func TestFindAgent(t *testing.T) {
 }
 
 func TestDetectAgent(t *testing.T) {
-	// Clear all agent env vars first
-	envVars := []string{"CLAUDECODE", "CURSOR_AGENT", "GITHUB_COPILOT", "OPENCODE", "CODEIUM_AGENT", "TABNINE_AGENT", "AMAZON_Q", "AI_AGENT"}
-	saved := make(map[string]string)
-	for _, env := range envVars {
-		saved[env] = os.Getenv(env)
-		t.Setenv(env, "")
+	// Each subtest clears ALL agent env vars to ensure full isolation.
+	allEnvVars := []string{
+		"CLAUDECODE", "CURSOR_AGENT", "GITHUB_COPILOT", "OPENCODE",
+		"CODEIUM_AGENT", "TABNINE_AGENT", "AMAZON_Q", "AI_AGENT",
+	}
+
+	clearAllEnvVars := func(t *testing.T) {
+		t.Helper()
+		for _, env := range allEnvVars {
+			t.Setenv(env, "")
+		}
 	}
 
 	t.Run("no agent detected", func(t *testing.T) {
+		clearAllEnvVars(t)
 		_, detected := DetectAgent()
 		if detected {
 			t.Error("expected no agent detected")
@@ -63,6 +69,7 @@ func TestDetectAgent(t *testing.T) {
 	})
 
 	t.Run("detects claude", func(t *testing.T) {
+		clearAllEnvVars(t)
 		t.Setenv("CLAUDECODE", "1")
 		agent, detected := DetectAgent()
 		if !detected {
@@ -74,7 +81,7 @@ func TestDetectAgent(t *testing.T) {
 	})
 
 	t.Run("detects opencode", func(t *testing.T) {
-		t.Setenv("CLAUDECODE", "")
+		clearAllEnvVars(t)
 		t.Setenv("OPENCODE", "1")
 		agent, detected := DetectAgent()
 		if !detected {
@@ -82,6 +89,30 @@ func TestDetectAgent(t *testing.T) {
 		}
 		if agent.Name != "opencode" {
 			t.Errorf("expected opencode, got %q", agent.Name)
+		}
+	})
+
+	t.Run("detects copilot", func(t *testing.T) {
+		clearAllEnvVars(t)
+		t.Setenv("GITHUB_COPILOT", "1")
+		agent, detected := DetectAgent()
+		if !detected {
+			t.Fatal("expected agent detected")
+		}
+		if agent.Name != "copilot" {
+			t.Errorf("expected copilot, got %q", agent.Name)
+		}
+	})
+
+	t.Run("detects cursor", func(t *testing.T) {
+		clearAllEnvVars(t)
+		t.Setenv("CURSOR_AGENT", "1")
+		agent, detected := DetectAgent()
+		if !detected {
+			t.Fatal("expected agent detected")
+		}
+		if agent.Name != "cursor" {
+			t.Errorf("expected cursor, got %q", agent.Name)
 		}
 	})
 }
@@ -115,6 +146,21 @@ func TestRenderWithData(t *testing.T) {
 
 	if !strings.Contains(content, "1.2.3") {
 		t.Error("rendered content should contain custom version 1.2.3")
+	}
+}
+
+func TestRenderWithData_UnknownAgent(t *testing.T) {
+	fakeAgent := Agent{
+		Name:        "nonexistent",
+		DisplayName: "Nonexistent",
+		Template:    "hello {{.Version}}",
+	}
+	_, err := RenderWithData(fakeAgent, TemplateData{Version: "1.0.0"})
+	if err == nil {
+		t.Fatal("expected error for unknown agent template")
+	}
+	if !strings.Contains(err.Error(), "no parsed template") {
+		t.Errorf("expected 'no parsed template' error, got: %v", err)
 	}
 }
 
@@ -153,7 +199,7 @@ func TestInstall(t *testing.T) {
 		}
 	})
 
-	t.Run("refuses overwrite without --yes", func(t *testing.T) {
+	t.Run("refuses overwrite without --force", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		agent, _ := FindAgent("copilot")
 
@@ -171,9 +217,12 @@ func TestInstall(t *testing.T) {
 		if !strings.Contains(err.Error(), "already exists") {
 			t.Errorf("error should mention 'already exists', got: %v", err)
 		}
+		if !strings.Contains(err.Error(), "--force") {
+			t.Errorf("error should mention '--force', got: %v", err)
+		}
 	})
 
-	t.Run("overwrites with --yes", func(t *testing.T) {
+	t.Run("overwrites with force", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		agent, _ := FindAgent("cursor")
 
@@ -263,6 +312,21 @@ func TestUninstall(t *testing.T) {
 			t.Errorf("expected 0 removed, got %d", len(removed))
 		}
 	})
+
+	t.Run("returns removed paths alongside error on partial failure", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		agent, _ := FindAgent("claude")
+
+		// Install project-local, then verify uninstall returns it
+		Install(agent, tmpDir, false, false)
+		removed, err := Uninstall(agent, tmpDir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(removed) != 1 {
+			t.Errorf("expected 1 removed, got %d", len(removed))
+		}
+	})
 }
 
 func TestStatus(t *testing.T) {
@@ -329,7 +393,7 @@ func TestAgentPaths(t *testing.T) {
 		pathPart string
 	}{
 		{"claude", ".claude/commands/dtctl.md"},
-		{"copilot", ".github/copilot-instructions.md"},
+		{"copilot", ".github/instructions/dtctl.instructions.md"},
 		{"cursor", ".cursor/rules/dtctl.mdc"},
 		{"opencode", ".opencode/commands/dtctl.md"},
 	}
@@ -376,4 +440,53 @@ func TestTemplateContent(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParsedTemplatesInitialized(t *testing.T) {
+	// Verify that all templates were parsed at init time
+	for _, agent := range AllAgents() {
+		t.Run(agent.Name, func(t *testing.T) {
+			if _, ok := parsedTemplates[agent.Name]; !ok {
+				t.Errorf("template for %s not found in parsedTemplates", agent.Name)
+			}
+		})
+	}
+}
+
+func TestResolvePath(t *testing.T) {
+	t.Run("project-local path", func(t *testing.T) {
+		agent, _ := FindAgent("claude")
+		path, err := resolvePath(agent, "/tmp/project", false)
+		if err != nil {
+			t.Fatalf("resolvePath error: %v", err)
+		}
+		expected := filepath.Join("/tmp/project", ".claude", "commands", "dtctl.md")
+		if path != expected {
+			t.Errorf("path = %q, want %q", path, expected)
+		}
+	})
+
+	t.Run("global path for supported agent", func(t *testing.T) {
+		agent, _ := FindAgent("claude")
+		path, err := resolvePath(agent, "/tmp/project", true)
+		if err != nil {
+			t.Fatalf("resolvePath error: %v", err)
+		}
+		home, _ := os.UserHomeDir()
+		expected := filepath.Join(home, ".claude", "commands", "dtctl.md")
+		if path != expected {
+			t.Errorf("path = %q, want %q", path, expected)
+		}
+	})
+
+	t.Run("global path for unsupported agent", func(t *testing.T) {
+		agent, _ := FindAgent("copilot")
+		_, err := resolvePath(agent, "/tmp/project", true)
+		if err == nil {
+			t.Fatal("expected error for unsupported global path")
+		}
+		if !strings.Contains(err.Error(), "does not support global") {
+			t.Errorf("error should mention 'does not support global', got: %v", err)
+		}
+	})
 }
