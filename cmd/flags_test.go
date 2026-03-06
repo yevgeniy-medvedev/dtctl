@@ -672,3 +672,78 @@ func TestHistoryCommand(t *testing.T) {
 		t.Error("historyCmd has no subcommands")
 	}
 }
+
+// TestSkillsFlags validates skills command flags
+func TestSkillsFlags(t *testing.T) {
+	// skills install flags
+	installFlags := []struct {
+		flagName     string
+		defaultValue string
+	}{
+		{"for", ""},
+		{"global", "false"},
+		{"force", "false"},
+		{"list", "false"},
+	}
+
+	for _, tt := range installFlags {
+		t.Run("install_"+tt.flagName, func(t *testing.T) {
+			flag := skillsInstallCmd.Flags().Lookup(tt.flagName)
+			if flag == nil {
+				t.Fatalf("Skills install flag --%s not found", tt.flagName)
+			}
+			if flag.DefValue != tt.defaultValue {
+				t.Errorf("Flag --%s default = %q, want %q", tt.flagName, flag.DefValue, tt.defaultValue)
+			}
+		})
+	}
+
+	// skills uninstall flags
+	t.Run("uninstall_for", func(t *testing.T) {
+		flag := skillsUninstallCmd.Flags().Lookup("for")
+		if flag == nil {
+			t.Fatal("Skills uninstall flag --for not found")
+		}
+		if flag.DefValue != "" {
+			t.Errorf("Flag --for default = %q, want %q", flag.DefValue, "")
+		}
+	})
+
+	// skills status flags
+	t.Run("status_for", func(t *testing.T) {
+		flag := skillsStatusCmd.Flags().Lookup("for")
+		if flag == nil {
+			t.Fatal("Skills status flag --for not found")
+		}
+		if flag.DefValue != "" {
+			t.Errorf("Flag --for default = %q, want %q", flag.DefValue, "")
+		}
+	})
+}
+
+// TestSkillsCommand validates skills command structure
+func TestSkillsCommand(t *testing.T) {
+	if skillsCmd == nil {
+		t.Fatal("skillsCmd is nil")
+	}
+
+	// Skills should have subcommands
+	subs := skillsCmd.Commands()
+	if len(subs) == 0 {
+		t.Fatal("skillsCmd has no subcommands")
+	}
+
+	expectedSubs := []string{"install", "uninstall", "status"}
+	for _, name := range expectedSubs {
+		found := false
+		for _, sub := range subs {
+			if sub.Name() == name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected subcommand %q not found under skills", name)
+		}
+	}
+}
