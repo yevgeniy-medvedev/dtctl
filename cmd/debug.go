@@ -21,6 +21,7 @@ var (
 )
 
 type breakpointRow struct {
+	ID       string
 	Filename string
 	Line     int
 	Active   bool
@@ -35,7 +36,7 @@ Examples:
   dtctl debug --filters k8s.namespace.name=prod
   dtctl debug --filters k8s.namespace.name=prod,dt.entity.host=HOST-123
 	dtctl debug --breakpoint OrderController.java:306
-	dtctl debug get breakpoints`,
+	dtctl get breakpoints`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		verbose := isDebugVerbose()
 
@@ -136,70 +137,61 @@ Examples:
 	},
 }
 
-var debugGetCmd = &cobra.Command{
-	Use:   "get",
-	Short: "Get Live Debugger resources",
-}
+func runGetBreakpoints(cmd *cobra.Command, args []string) error {
+	verbose := isDebugVerbose()
 
-var debugGetBreakpointsCmd = &cobra.Command{
-	Use:   "breakpoints",
-	Short: "List all breakpoints in the current workspace",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		verbose := isDebugVerbose()
+	cfg, err := LoadConfig()
+	if err != nil {
+		return err
+	}
 
-		cfg, err := LoadConfig()
-		if err != nil {
-			return err
-		}
+	ctx, err := cfg.CurrentContextObj()
+	if err != nil {
+		return err
+	}
 
-		ctx, err := cfg.CurrentContextObj()
-		if err != nil {
-			return err
-		}
+	c, err := NewClientFromConfig(cfg)
+	if err != nil {
+		return err
+	}
 
-		c, err := NewClientFromConfig(cfg)
-		if err != nil {
-			return err
-		}
+	handler, err := livedebugger.NewHandler(c, ctx.Environment)
+	if err != nil {
+		return err
+	}
 
-		handler, err := livedebugger.NewHandler(c, ctx.Environment)
-		if err != nil {
-			return err
-		}
-
-		workspaceResp, workspaceID, err := handler.GetOrCreateWorkspace(currentProjectPath())
-		if err != nil {
-			if verbose {
-				_ = printGraphQLResponse("getOrCreateWorkspaceV2", workspaceResp)
-			}
-			return err
-		}
+	workspaceResp, workspaceID, err := handler.GetOrCreateWorkspace(currentProjectPath())
+	if err != nil {
 		if verbose {
-			if err := printGraphQLResponse("getOrCreateWorkspaceV2", workspaceResp); err != nil {
-				return err
-			}
+			_ = printGraphQLResponse("getOrCreateWorkspaceV2", workspaceResp)
 		}
-
-		workspaceRulesResp, err := handler.GetWorkspaceRules(workspaceID)
-		if err != nil {
-			if verbose {
-				_ = printGraphQLResponse("getWorkspaceRules", workspaceRulesResp)
-			}
+		return err
+	}
+	if verbose {
+		if err := printGraphQLResponse("getOrCreateWorkspaceV2", workspaceResp); err != nil {
 			return err
 		}
+	}
 
+	workspaceRulesResp, err := handler.GetWorkspaceRules(workspaceID)
+	if err != nil {
 		if verbose {
-			return printGraphQLResponse("getWorkspaceRules", workspaceRulesResp)
+			_ = printGraphQLResponse("getWorkspaceRules", workspaceRulesResp)
 		}
+		return err
+	}
 
-		rows, err := extractBreakpointRows(workspaceRulesResp)
-		if err != nil {
-			return err
-		}
+	if verbose {
+		return printGraphQLResponse("getWorkspaceRules", workspaceRulesResp)
+	}
 
-		printBreakpointsTable(rows)
-		return nil
-	},
+	rows, err := extractBreakpointRows(workspaceRulesResp)
+	if err != nil {
+		return err
+	}
+
+	printBreakpointsTable(rows)
+	return nil
 }
 
 func isDebugVerbose() bool {
@@ -244,6 +236,7 @@ func extractBreakpointRows(workspaceRulesResp map[string]interface{}) ([]breakpo
 			continue
 		}
 
+		id, _ := rule["id"].(string)
 		filename, _ := location["filename"].(string)
 		if filename == "" {
 			continue
@@ -262,7 +255,7 @@ func extractBreakpointRows(workspaceRulesResp map[string]interface{}) ([]breakpo
 		}
 
 		isDisabled, _ := rule["is_disabled"].(bool)
-		rows = append(rows, breakpointRow{Filename: filename, Line: line, Active: !isDisabled})
+		rows = append(rows, breakpointRow{ID: id, Filename: filename, Line: line, Active: !isDisabled})
 	}
 
 	sort.Slice(rows, func(i, j int) bool {
@@ -277,9 +270,9 @@ func extractBreakpointRows(workspaceRulesResp map[string]interface{}) ([]breakpo
 
 func printBreakpointsTable(rows []breakpointRow) {
 	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	_, _ = fmt.Fprintln(tw, "filename\tline number\tactive")
+	_, _ = fmt.Fprintln(tw, "id\tfilename\tline number\tactive")
 	for _, row := range rows {
-		_, _ = fmt.Fprintf(tw, "%s\t%d\t%t\n", row.Filename, row.Line, row.Active)
+		_, _ = fmt.Fprintf(tw, "%s\t%s\t%d\t%t\n", row.ID, row.Filename, row.Line, row.Active)
 	}
 	_ = tw.Flush()
 }
@@ -377,7 +370,5 @@ func printGraphQLResponse(operation string, payload map[string]interface{}) erro
 func init() {
 	debugCmd.Flags().StringVar(&debugFilters, "filters", "", "filters to apply (comma-separated key=value pairs)")
 	debugCmd.Flags().StringVar(&debugBreakpoint, "breakpoint", "", "breakpoint location in File.java:line format")
-	debugGetCmd.AddCommand(debugGetBreakpointsCmd)
-	debugCmd.AddCommand(debugGetCmd)
 	rootCmd.AddCommand(debugCmd)
 }

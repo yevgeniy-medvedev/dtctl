@@ -12,6 +12,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var getBreakpointsCmd = &cobra.Command{
+	Use:   "breakpoints",
+	Short: "List all breakpoints in the current workspace",
+	RunE:  runGetBreakpoints,
+}
+
 // getCmd represents the get command
 var getCmd = &cobra.Command{
 	Use:   "get",
@@ -103,6 +109,7 @@ func init() {
 	getCmd.AddCommand(getCopilotSkillsCmd)
 	getCmd.AddCommand(getSettingsSchemasCmd)
 	getCmd.AddCommand(getSettingsCmd)
+	getCmd.AddCommand(getBreakpointsCmd)
 
 	// Delete subcommands (command definitions live in get_*.go files)
 	deleteCmd.AddCommand(deleteWorkflowCmd)

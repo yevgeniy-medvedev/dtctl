@@ -225,6 +225,44 @@ func (h *Handler) GetWorkspaceRules(workspaceID string) (map[string]interface{},
 	return h.executeGraphQL(query, variables)
 }
 
+func (h *Handler) DeleteBreakpoint(workspaceID, ruleID string) (map[string]interface{}, error) {
+	mutation := `mutation DeleteRule($orgId: ID!, $workspaceId: ID!, $ruleId: ID!) {
+  org(orgId: $orgId) {
+    workspace(id: $workspaceId) {
+      deleteRuleV2(mutableId: $ruleId)
+    }
+  }
+}`
+
+	variables := map[string]interface{}{
+		"orgId":       h.orgID,
+		"workspaceId": workspaceID,
+		"ruleId":      ruleID,
+	}
+
+	return h.executeGraphQL(mutation, variables)
+}
+
+func (h *Handler) DeleteAllBreakpoints(workspaceID string) (map[string]interface{}, error) {
+	mutation := `mutation DeleteAllRulesFromWorkspace($orgId: ID!, $workspaceId: ID!, $data: DeleteWorkspaceRulesInput!) {
+  org(orgId: $orgId) {
+    workspace(id: $workspaceId) {
+      deleteAllRulesFromWorkspaceV2(data: $data)
+    }
+  }
+}`
+
+	variables := map[string]interface{}{
+		"orgId":       h.orgID,
+		"workspaceId": workspaceID,
+		"data": map[string]interface{}{
+			"ruleType": "DumpFrame",
+		},
+	}
+
+	return h.executeGraphQL(mutation, variables)
+}
+
 func BuildFilterSets(filters map[string][]string) []map[string]interface{} {
 	if len(filters) == 0 {
 		return []map[string]interface{}{}

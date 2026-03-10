@@ -2,21 +2,21 @@ package cmd
 
 import "testing"
 
-func TestDebugGetBreakpointsCommandRegistration(t *testing.T) {
-	getCmd, _, err := debugCmd.Find([]string{"get"})
+func TestGetBreakpointsCommandRegistration(t *testing.T) {
+	getCmd, _, err := rootCmd.Find([]string{"get"})
 	if err != nil {
-		t.Fatalf("expected debug get command to exist, got error: %v", err)
+		t.Fatalf("expected get command to exist, got error: %v", err)
 	}
 	if getCmd == nil || getCmd.Name() != "get" {
-		t.Fatalf("expected debug get command to exist")
+		t.Fatalf("expected get command to exist")
 	}
 
-	breakpointsCmd, _, err := debugCmd.Find([]string{"get", "breakpoints"})
+	breakpointsCmd, _, err := rootCmd.Find([]string{"get", "breakpoints"})
 	if err != nil {
-		t.Fatalf("expected debug get breakpoints command to exist, got error: %v", err)
+		t.Fatalf("expected get breakpoints command to exist, got error: %v", err)
 	}
 	if breakpointsCmd == nil || breakpointsCmd.Name() != "breakpoints" {
-		t.Fatalf("expected debug get breakpoints command to exist")
+		t.Fatalf("expected get breakpoints command to exist")
 	}
 }
 
@@ -27,6 +27,7 @@ func TestExtractBreakpointRows(t *testing.T) {
 				"workspace": map[string]interface{}{
 					"rules": []interface{}{
 						map[string]interface{}{
+							"id":          "bp-2",
 							"is_disabled": false,
 							"aug_json": map[string]interface{}{
 								"location": map[string]interface{}{
@@ -36,6 +37,7 @@ func TestExtractBreakpointRows(t *testing.T) {
 							},
 						},
 						map[string]interface{}{
+							"id":          "bp-1",
 							"is_disabled": true,
 							"aug_json": map[string]interface{}{
 								"location": map[string]interface{}{
@@ -59,11 +61,11 @@ func TestExtractBreakpointRows(t *testing.T) {
 		t.Fatalf("expected 2 rows, got %d", len(rows))
 	}
 
-	if rows[0].Filename != "AController.java" || rows[0].Line != 42 || rows[0].Active {
+	if rows[0].ID != "bp-1" || rows[0].Filename != "AController.java" || rows[0].Line != 42 || rows[0].Active {
 		t.Fatalf("unexpected first row: %#v", rows[0])
 	}
 
-	if rows[1].Filename != "OrderController.java" || rows[1].Line != 1337 || !rows[1].Active {
+	if rows[1].ID != "bp-2" || rows[1].Filename != "OrderController.java" || rows[1].Line != 1337 || !rows[1].Active {
 		t.Fatalf("unexpected second row: %#v", rows[1])
 	}
 }

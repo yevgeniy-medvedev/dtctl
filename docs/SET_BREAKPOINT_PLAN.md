@@ -40,7 +40,7 @@ POC implementation is complete for the scope defined above.
 - Command shape:
 	- `dtctl debug --filters key=value[,key=value...]`
 	- `dtctl debug --breakpoint File.java:line`
-	- `dtctl debug get breakpoints`
+	- `dtctl get breakpoints`
 - Validations implemented:
 	- At least one of `--filters` or `--breakpoint` is required.
 	- Filter parsing requires valid `key=value` pairs.
@@ -53,6 +53,8 @@ POC implementation is complete for the scope defined above.
 	- `GetOrCreateWorkspace(...)` using `getOrCreateUserWorkspaceV2` (clientName=`dtctl`)
 	- `UpdateWorkspaceFilters(...)` using `updateWorkspaceV2`
 	- `CreateBreakpoint(...)` using `createRuleV2`
+	- `DeleteBreakpoint(...)` using `deleteRuleV2`
+	- `DeleteAllBreakpoints(...)` using `deleteAllRulesFromWorkspaceV2` with `DumpFrame` rule type
 - Additional support implemented:
 	- Environment URL -> GraphQL endpoint resolution (`/platform/dob/graphql`)
 	- Org ID extraction from environment host
@@ -112,19 +114,30 @@ Expected GraphQL `filterSets` payload shape:
 - Covered:
 	- `parseFilters` success/error cases
 	- `parseBreakpoint` success/error cases
-	- `debug get breakpoints` command registration
-	- workspace-rules to table-row extraction (`filename`, `line number`, `active`)
+	- `get breakpoints` command registration
+	- workspace-rules to table-row extraction (`id`, `filename`, `line number`, `active`)
 
 ### 6) Breakpoint listing added
 
 - New command:
-	- `dtctl debug get breakpoints`
+	- `dtctl get breakpoints`
 - Implemented GraphQL query:
 	- `GetWorkspaceRules(...)` in `pkg/resources/livedebugger/livedebugger.go`
 - Output behavior:
-	- non-verbose: table view (`filename`, `line number`, `active`)
+	- non-verbose: table view (`id`, `filename`, `line number`, `active`)
 	- verbose: raw GraphQL output
 - `active` is derived from `is_disabled` (`active = !is_disabled`).
+
+### 7) Breakpoint deletion added
+
+- New commands:
+	- `dtctl delete breakpoint <id>`
+	- `dtctl delete breakpoint File.java:line`
+	- `dtctl delete breakpoint --all`
+- Behavior:
+	- accepts a mutable breakpoint ID directly
+	- resolves `File.java:line` by listing workspace breakpoints, then deletes all matches one by one
+	- supports confirmation prompts, `-y/--yes`, and `--dry-run`
 
 ## Notes / Follow-up (Optional Hardening)
 
@@ -140,7 +153,9 @@ Expected GraphQL `filterSets` payload shape:
 | Require at least one of `--filters` / `--breakpoint` | ✅ | `cmd/debug.go` |
 | Parse multiple comma-separated filters | ✅ | `parseFilters` in `cmd/debug.go` |
 | Parse `File.java:line` breakpoint format | ✅ | `parseBreakpoint` in `cmd/debug.go` |
-| List workspace breakpoints (`debug get breakpoints`) | ✅ | `cmd/debug.go`, `GetWorkspaceRules` in `pkg/resources/livedebugger/livedebugger.go` |
+| List workspace breakpoints (`get breakpoints`) | ✅ | `cmd/debug.go`, `cmd/get.go`, `GetWorkspaceRules` in `pkg/resources/livedebugger/livedebugger.go` |
+| Delete breakpoint by ID or file:line | ✅ | `cmd/delete_breakpoints.go`, `DeleteBreakpoint` in `pkg/resources/livedebugger/livedebugger.go` |
+| Delete all workspace breakpoints | ✅ | `cmd/delete_breakpoints.go`, `DeleteAllBreakpoints` in `pkg/resources/livedebugger/livedebugger.go` |
 | Get/create workspace with clientName `dtctl` | ✅ | `GetOrCreateWorkspace` in `pkg/resources/livedebugger/livedebugger.go` |
 | Update workspace filters via GraphQL | ✅ | `UpdateWorkspaceFilters` in `pkg/resources/livedebugger/livedebugger.go` |
 | Create breakpoint rule via GraphQL | ✅ | `CreateBreakpoint` in `pkg/resources/livedebugger/livedebugger.go` |

@@ -20,7 +20,7 @@ The implementation target was parity with the existing reference behavior (Varia
 
 The parser was migrated from schema-less wire decoding to typed decoding using:
 
-- `dynatrace.com/protocols/v11/messages/rookout`
+- `pkg/proto/rookout` (local copied protobuf definitions)
 - `AugReportMessage`
 - `Arguments2` (`Variant2` root)
 
@@ -75,8 +75,11 @@ Handled variant types include:
   - Switched to typed fixture payloads (`AugReportMessage` marshaling).
   - Added edge-case regression coverage (formatted message, large int, set/reverse order, error, timestamp).
 
+- `pkg/proto/rookout/`
+  - Added local copied generated protobuf files required for snapshot decoding.
+
 - `go.mod`, `go.sum`
-  - Added direct dependency: `dynatrace.com/protocols/v11 v11.331.0`.
+  - Removed external dependency on `dynatrace.com/protocols/v11` after switching to local protobuf package.
 
 ## Validation Performed
 
@@ -126,8 +129,8 @@ Adds snapshot output support for DQL query results via `-o snapshot`, decoding `
 - Updated tests in `pkg/output/snapshot_test.go`:
   - migrated to typed protobuf fixtures
   - added edge-case regression test coverage
-- Added direct dependency in `go.mod` / `go.sum`:
-  - `dynatrace.com/protocols/v11 v11.331.0`
+- Added local protobuf package in `pkg/proto/rookout/` and switched imports from external module to local package.
+- Removed external `dynatrace.com/protocols/v11` dependency from `go.mod` / `go.sum`.
 
 ### Validation
 
