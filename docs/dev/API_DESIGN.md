@@ -678,12 +678,68 @@ dtctl delete edgeconnect <id>                    # Delete EdgeConnect
 
 ### 11. OpenPipeline
 
-**Note**: The direct OpenPipeline API (`/platform/openpipeline/v1/configurations`) is deprecated and has been migrated to Settings API v2. Use the Settings API with OpenPipeline schemas instead (see Settings API v2 section below).
+**Note**: The OpenPipeline API for managing configurations (`/platform/openpipeline/v1/configurations`) is deprecated,
+and has been migrated to Settings API v2. Only to validate DQL processors, or Matchers use the OpenPipeline API, CRUD operations
+are using the Settings API.
+
 
 ```bash
-# OpenPipeline is now managed via Settings API
-# See Settings API v2 section for details on managing pipelines, ingest sources, and routing
+# List configurations (uses Settings 2.0)
+dtctl get openpipeline configurations --schema <schema_id>
+dtctl get openpipeline configurations --schema builtin:openpipeline.logs.pipelines
+
+# Get configuration (uses Settings 2.0)
+dtctl get openpipeline configurations <object-id>
+
+# Create configuration (uses Settings 2.0)
+dtctl create openpipeline configuration --type <id> 
+dtctl create openpipeline configuration --type logs 
+dtctl apply -f pipeline-config.yaml
+
+# Update configuration (uses Settings 2.0)
+dtctl update openpipeline configuration <object-id> -f config.yaml # Update existing
+dtctl update openpipeline configuration <object-id> -f config.yaml --set version=v2
+
+# Delete configuration (uses Settings 2.0)
+dtctl delete openpipeline configuration <object-id>                
+dtctl delete openpipeline configuration <object-id> -y             # Skip confirmation
+
+# Matcher Operations
+dtctl verify openpipeline matcher 'matchesValue(content, "error")'
+
+# DQL Processor Operations
+dtctl verify openpipeline processor 'fieldsAdd(environment: "production")'
+
+# Preview a processor with sample data (requires JSON file with processor + sample record)
+dtctl exec openpipeline preview-processor -f preview-request.json
+dtctl exec openpipeline preview-processor -f preview-request.json -o json
 ```
+Sample payload for preview-processor:
+```json
+{
+	"processor": {
+		"type": "fieldsRename",
+		"enabled": false,
+		"editable": true,
+		"id": "hostname-field-normalizer",
+		"description": "hostname field normalizer",
+		"matcher": "isNotNull(\"hostname\")",
+		"sampleData": "{\"hostname\": \"raspberry-pi 4\",\"ip\":\"10.0.0.123\"}",
+		"fields": [
+			{
+				"fromName": "hostname",
+				"toName": "host.name"
+			},
+			{
+				"fromName": "ip",
+				"toName": "ip.address"
+			}
+		]
+	}
+}
+```
+
+
 
 ### 12. Settings API v2
 
