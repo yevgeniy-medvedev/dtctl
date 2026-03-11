@@ -33,6 +33,7 @@ Examples:
 	Args: validateDeleteBreakpointArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		deleteAll, _ := cmd.Flags().GetBool("all")
+		yes, _ := cmd.Flags().GetBool("yes")
 		verbose := isDebugVerbose()
 
 		cfg, err := LoadConfig()
@@ -91,7 +92,7 @@ Examples:
 		}
 
 		if deleteAll {
-			return runDeleteAllBreakpoints(handler, workspaceID, rows, verbose)
+			return runDeleteAllBreakpoints(handler, workspaceID, rows, yes, verbose)
 		}
 
 		identifier := args[0]
@@ -100,14 +101,14 @@ Examples:
 			if len(targets) == 0 {
 				return fmt.Errorf("no breakpoints found at %s:%d", fileName, lineNumber)
 			}
-			return runDeleteBreakpointRows(handler, workspaceID, targets, verbose)
+			return runDeleteBreakpointRows(handler, workspaceID, targets, yes, verbose)
 		}
 
 		if row, ok := findBreakpointRowByID(rows, identifier); ok {
-			return runDeleteBreakpointRows(handler, workspaceID, []breakpointRow{row}, verbose)
+			return runDeleteBreakpointRows(handler, workspaceID, []breakpointRow{row}, yes, verbose)
 		}
 
-		return runDeleteBreakpointRows(handler, workspaceID, []breakpointRow{{ID: identifier}}, verbose)
+		return runDeleteBreakpointRows(handler, workspaceID, []breakpointRow{{ID: identifier}}, yes, verbose)
 	},
 }
 
@@ -135,13 +136,13 @@ func validateDeleteBreakpointArgs(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runDeleteAllBreakpoints(handler *livedebugger.Handler, workspaceID string, rows []breakpointRow, verbose bool) error {
+func runDeleteAllBreakpoints(handler *livedebugger.Handler, workspaceID string, rows []breakpointRow, yes bool, verbose bool) error {
 	if len(rows) == 0 {
 		fmt.Println("No breakpoints found in the current workspace")
 		return nil
 	}
 
-	if !forceDelete && !plainMode {
+	if !yes && !plainMode {
 		confirmMsg := fmt.Sprintf("Delete ALL %d breakpoint(s) in the current workspace?", len(rows))
 		if !prompt.Confirm(confirmMsg) {
 			fmt.Println("Deletion cancelled")
@@ -180,12 +181,12 @@ func runDeleteAllBreakpoints(handler *livedebugger.Handler, workspaceID string, 
 	return nil
 }
 
-func runDeleteBreakpointRows(handler *livedebugger.Handler, workspaceID string, rows []breakpointRow, verbose bool) error {
+func runDeleteBreakpointRows(handler *livedebugger.Handler, workspaceID string, rows []breakpointRow, yes bool, verbose bool) error {
 	if len(rows) == 0 {
 		return nil
 	}
 
-	if !forceDelete && !plainMode {
+	if !yes && !plainMode {
 		if len(rows) == 1 {
 			row := rows[0]
 			if !prompt.ConfirmDeletion("breakpoint", formatBreakpointLocation(row), row.ID) {
@@ -305,5 +306,5 @@ func formatBreakpointLocation(row breakpointRow) string {
 func init() {
 	deleteCmd.AddCommand(deleteBreakpointCmd)
 	deleteBreakpointCmd.Flags().Bool("all", false, "Delete all breakpoints in the current workspace")
-	deleteBreakpointCmd.Flags().BoolVarP(&forceDelete, "yes", "y", false, "Skip confirmation prompt")
+	deleteBreakpointCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 }
