@@ -177,7 +177,9 @@ func TestParseBreakpoint(t *testing.T) {
 
 func TestUseBreakpointTableView(t *testing.T) {
 	originalFormat := outputFormat
+	originalAgentMode := agentMode
 	defer func() { outputFormat = originalFormat }()
+	defer func() { agentMode = originalAgentMode }()
 
 	tests := []struct {
 		name   string
@@ -194,12 +196,21 @@ func TestUseBreakpointTableView(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			agentMode = false
 			outputFormat = tt.format
 			if got := useBreakpointTableView(); got != tt.want {
 				t.Fatalf("useBreakpointTableView() = %v, want %v", got, tt.want)
 			}
 		})
 	}
+
+	t.Run("agent mode forces non-table view", func(t *testing.T) {
+		agentMode = true
+		outputFormat = "table"
+		if got := useBreakpointTableView(); got {
+			t.Fatalf("useBreakpointTableView() = %v, want false when agent mode enabled", got)
+		}
+	})
 }
 
 func TestBuildGraphQLResponse(t *testing.T) {

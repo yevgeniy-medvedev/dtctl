@@ -138,21 +138,18 @@ func validateDeleteBreakpointArgs(cmd *cobra.Command, args []string) error {
 
 func runDeleteAllBreakpoints(handler *livedebugger.Handler, workspaceID string, rows []breakpointRow, yes bool, verbose bool) error {
 	if len(rows) == 0 {
-		printOutln("No breakpoints found in the current workspace")
-		return nil
+		return printBreakpointMessage("delete", "No breakpoints found in the current workspace")
 	}
 
 	if !yes && !plainMode {
 		confirmMsg := fmt.Sprintf("Delete ALL %d breakpoint(s) in the current workspace?", len(rows))
 		if !prompt.Confirm(confirmMsg) {
-			printOutln("Deletion cancelled")
-			return nil
+			return printBreakpointMessage("delete", "Deletion cancelled")
 		}
 	}
 
 	if dryRun {
-		printOutf("Dry run: would delete %d breakpoint(s) from the current workspace\n", len(rows))
-		return nil
+		return printBreakpointMessage("delete", fmt.Sprintf("Dry run: would delete %d breakpoint(s) from the current workspace", len(rows)))
 	}
 
 	deleteResp, err := handler.DeleteAllBreakpoints(workspaceID)
@@ -173,12 +170,10 @@ func runDeleteAllBreakpoints(handler *livedebugger.Handler, workspaceID string, 
 		return err
 	}
 	if len(deletedIDs) == 0 {
-		printOutln("Deleted 0 breakpoints")
-		return nil
+		return printBreakpointMessage("delete", "Deleted 0 breakpoints")
 	}
 
-	printOutf("Deleted %d breakpoint(s)\n", len(deletedIDs))
-	return nil
+	return printBreakpointMessage("delete", fmt.Sprintf("Deleted %d breakpoint(s)", len(deletedIDs)))
 }
 
 func runDeleteBreakpointRows(handler *livedebugger.Handler, workspaceID string, rows []breakpointRow, yes bool, verbose bool) error {
@@ -190,21 +185,21 @@ func runDeleteBreakpointRows(handler *livedebugger.Handler, workspaceID string, 
 		if len(rows) == 1 {
 			row := rows[0]
 			if !prompt.ConfirmDeletion("breakpoint", formatBreakpointLocation(row), row.ID) {
-				printOutln("Deletion cancelled")
-				return nil
+				return printBreakpointMessage("delete", "Deletion cancelled")
 			}
 		} else {
 			confirmMsg := fmt.Sprintf("Delete %d breakpoint(s) at %s?", len(rows), formatBreakpointLocation(rows[0]))
 			if !prompt.Confirm(confirmMsg) {
-				printOutln("Deletion cancelled")
-				return nil
+				return printBreakpointMessage("delete", "Deletion cancelled")
 			}
 		}
 	}
 
 	if dryRun {
 		for _, row := range rows {
-			printOutf("Dry run: would delete breakpoint %s (%s)\n", row.ID, formatBreakpointLocation(row))
+			if err := printBreakpointMessage("delete", fmt.Sprintf("Dry run: would delete breakpoint %s (%s)", row.ID, formatBreakpointLocation(row))); err != nil {
+				return err
+			}
 		}
 		return nil
 	}
@@ -229,14 +224,20 @@ func runDeleteBreakpointRows(handler *livedebugger.Handler, workspaceID string, 
 	}
 
 	if len(deletedRows) == 1 {
-		printOutf("Deleted breakpoint %s (%s)\n", deletedRows[0].ID, formatBreakpointLocation(deletedRows[0]))
+		if err := printBreakpointMessage("delete", fmt.Sprintf("Deleted breakpoint %s (%s)", deletedRows[0].ID, formatBreakpointLocation(deletedRows[0]))); err != nil {
+			return err
+		}
 	} else if len(deletedRows) > 1 {
-		printOutf("Deleted %d breakpoint(s) at %s\n", len(deletedRows), formatBreakpointLocation(deletedRows[0]))
+		if err := printBreakpointMessage("delete", fmt.Sprintf("Deleted %d breakpoint(s) at %s", len(deletedRows), formatBreakpointLocation(deletedRows[0]))); err != nil {
+			return err
+		}
 	}
 
 	if len(failures) > 0 {
 		if len(deletedRows) > 0 {
-			printOutf("Failed to delete %d breakpoint(s) after deleting %d successfully\n", len(failures), len(deletedRows))
+			if err := printBreakpointMessage("delete", fmt.Sprintf("Failed to delete %d breakpoint(s) after deleting %d successfully", len(failures), len(deletedRows))); err != nil {
+				return err
+			}
 		}
 		return fmt.Errorf("failed to delete breakpoint(s): %s", strings.Join(failures, "; "))
 	}

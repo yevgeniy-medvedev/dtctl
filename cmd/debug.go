@@ -104,7 +104,7 @@ Examples:
 			}
 		}
 
-		return nil
+		return printBreakpointMessage("debug", "Updated Live Debugger workspace filters")
 	},
 }
 
@@ -158,6 +158,7 @@ func runGetBreakpoints(cmd *cobra.Command, args []string) error {
 
 	if !useBreakpointTableView() {
 		printer := NewPrinter()
+		_ = enrichAgent(printer, "get", "breakpoint")
 		return printer.Print(buildGraphQLResponse("getWorkspaceRules", workspaceRulesResp))
 	}
 
@@ -171,6 +172,9 @@ func runGetBreakpoints(cmd *cobra.Command, args []string) error {
 }
 
 func useBreakpointTableView() bool {
+	if agentMode {
+		return false
+	}
 	return outputFormat == "" || outputFormat == "table" || outputFormat == "wide" || outputFormat == "csv"
 }
 
@@ -270,7 +274,7 @@ func breakpointRowFromRule(rule map[string]interface{}) (breakpointRow, bool) {
 }
 
 func printBreakpointsTable(rows []breakpointRow) {
-	tw := tabwriter.NewWriter(commandStdout(), 0, 0, 2, ' ', 0)
+	tw := tabwriter.NewWriter(rootCmd.OutOrStdout(), 0, 0, 2, ' ', 0)
 	_, _ = fmt.Fprintln(tw, "id\tfilename\tline number\tactive")
 	for _, row := range rows {
 		_, _ = fmt.Fprintf(tw, "%s\t%s\t%d\t%t\n", row.ID, row.Filename, row.Line, row.Active)
@@ -361,7 +365,7 @@ func printGraphQLResponse(operation string, payload map[string]interface{}) erro
 		return fmt.Errorf("failed to encode %s response: %w", operation, err)
 	}
 
-	printOutln(string(encoded))
+	_, _ = fmt.Fprintln(rootCmd.OutOrStdout(), string(encoded))
 	return nil
 }
 

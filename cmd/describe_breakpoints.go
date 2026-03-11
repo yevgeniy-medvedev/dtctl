@@ -172,6 +172,7 @@ func runDescribeBreakpoint(cmd *cobra.Command, identifier string) error {
 
 	if !useBreakpointDescribeTextView() {
 		printer := NewPrinter()
+		_ = enrichAgent(printer, "describe", "breakpoint")
 		if len(results) == 1 {
 			return printer.Print(results[0])
 		}
@@ -180,7 +181,7 @@ func runDescribeBreakpoint(cmd *cobra.Command, identifier string) error {
 
 	for i, result := range results {
 		if i > 0 {
-			printOutln()
+			_, _ = fmt.Fprintln(rootCmd.OutOrStdout())
 		}
 		printBreakpointStatusResult(result)
 	}
@@ -189,6 +190,9 @@ func runDescribeBreakpoint(cmd *cobra.Command, identifier string) error {
 }
 
 func useBreakpointDescribeTextView() bool {
+	if agentMode {
+		return false
+	}
 	return outputFormat == "" || outputFormat == "table" || outputFormat == "wide" || outputFormat == "csv"
 }
 
@@ -459,18 +463,18 @@ func boolValue(value interface{}) bool {
 }
 
 func printBreakpointStatusResult(result breakpointStatusResult) {
-	printOutf("ID:            %s\n", result.ID)
+	_, _ = fmt.Fprintf(rootCmd.OutOrStdout(), "ID:            %s\n", result.ID)
 	if result.Location != "" {
-		printOutf("Location:      %s\n", result.Location)
+		_, _ = fmt.Fprintf(rootCmd.OutOrStdout(), "Location:      %s\n", result.Location)
 	}
-	printOutf("Enabled:       %t\n", result.Enabled)
+	_, _ = fmt.Fprintf(rootCmd.OutOrStdout(), "Enabled:       %t\n", result.Enabled)
 	if result.DisableReason != "" {
-		printOutf("Disable reason:%s%s\n", strings.Repeat(" ", 1), result.DisableReason)
+		_, _ = fmt.Fprintf(rootCmd.OutOrStdout(), "Disable reason:%s%s\n", strings.Repeat(" ", 1), result.DisableReason)
 	}
-	printOutf("Status:        %s\n", result.Status)
-	printOutln()
+	_, _ = fmt.Fprintf(rootCmd.OutOrStdout(), "Status:        %s\n", result.Status)
+	_, _ = fmt.Fprintln(rootCmd.OutOrStdout())
 
-	w := tabwriter.NewWriter(commandStdout(), 0, 0, 2, ' ', 0)
+	w := tabwriter.NewWriter(rootCmd.OutOrStdout(), 0, 0, 2, ' ', 0)
 	fmt.Fprintf(w, "Active rooks:\t%d\n", len(result.ActiveRooks))
 	fmt.Fprintf(w, "Pending rooks:\t%d\n", len(result.PendingRooks))
 	fmt.Fprintf(w, "Warnings:\t%d\n", len(result.Warnings))
@@ -493,18 +497,18 @@ func printBreakpointRooksSection(title string, rooks []breakpointRookInfo) {
 	if len(rooks) == 0 {
 		return
 	}
-	printOutln()
-	printOutf("%s:\n", title)
+	_, _ = fmt.Fprintln(rootCmd.OutOrStdout())
+	_, _ = fmt.Fprintf(rootCmd.OutOrStdout(), "%s:\n", title)
 	for _, rook := range rooks {
 		label := strings.TrimSpace(strings.Join([]string{rook.Hostname, rook.Executable}, " / "))
 		if label == "/" || label == "" {
 			label = rook.ID
 		}
 		if rook.ID != "" && rook.ID != label {
-			printOutf("  - %s (%s)\n", label, rook.ID)
+			_, _ = fmt.Fprintf(rootCmd.OutOrStdout(), "  - %s (%s)\n", label, rook.ID)
 			continue
 		}
-		printOutf("  - %s\n", label)
+		_, _ = fmt.Fprintf(rootCmd.OutOrStdout(), "  - %s\n", label)
 	}
 }
 
@@ -512,14 +516,14 @@ func printBreakpointTipsSection(title string, tips []breakpointTip) {
 	if len(tips) == 0 {
 		return
 	}
-	printOutln()
-	printOutf("%s:\n", title)
+	_, _ = fmt.Fprintln(rootCmd.OutOrStdout())
+	_, _ = fmt.Fprintf(rootCmd.OutOrStdout(), "%s:\n", title)
 	for _, tip := range tips {
 		if tip.DocsLink != "" {
-			printOutf("  - %s (%s)\n", tip.Description, tip.DocsLink)
+			_, _ = fmt.Fprintf(rootCmd.OutOrStdout(), "  - %s (%s)\n", tip.Description, tip.DocsLink)
 			continue
 		}
-		printOutf("  - %s\n", tip.Description)
+		_, _ = fmt.Fprintf(rootCmd.OutOrStdout(), "  - %s\n", tip.Description)
 	}
 }
 
@@ -527,30 +531,30 @@ func printBreakpointIssuesSection(title string, issues []breakpointStatusIssue) 
 	if len(issues) == 0 {
 		return
 	}
-	printOutln()
-	printOutf("%s:\n", title)
+	_, _ = fmt.Fprintln(rootCmd.OutOrStdout())
+	_, _ = fmt.Fprintf(rootCmd.OutOrStdout(), "%s:\n", title)
 	for _, issue := range issues {
-		printOutf("  - %s\n", issue.Title)
+		_, _ = fmt.Fprintf(rootCmd.OutOrStdout(), "  - %s\n", issue.Title)
 		if issue.Description != "" {
-			printOutf("    Description: %s\n", issue.Description)
+			_, _ = fmt.Fprintf(rootCmd.OutOrStdout(), "    Description: %s\n", issue.Description)
 		}
 		if issue.DocsLink != "" {
-			printOutf("    Docs:        %s\n", issue.DocsLink)
+			_, _ = fmt.Fprintf(rootCmd.OutOrStdout(), "    Docs:        %s\n", issue.DocsLink)
 		}
 		if len(issue.Rooks) > 0 {
-			printOutf("    Rooks:       %d\n", len(issue.Rooks))
+			_, _ = fmt.Fprintf(rootCmd.OutOrStdout(), "    Rooks:       %d\n", len(issue.Rooks))
 			for _, rook := range issue.Rooks {
 				label := strings.TrimSpace(strings.Join([]string{rook.Hostname, rook.Executable}, " / "))
 				if label == "/" || label == "" {
 					label = rook.ID
 				}
-				printOutf("      - %s\n", label)
+				_, _ = fmt.Fprintf(rootCmd.OutOrStdout(), "      - %s\n", label)
 			}
 		}
 		if len(issue.Controllers) > 0 {
-			printOutf("    Controllers: %d\n", len(issue.Controllers))
+			_, _ = fmt.Fprintf(rootCmd.OutOrStdout(), "    Controllers: %d\n", len(issue.Controllers))
 			for _, controller := range issue.Controllers {
-				printOutf("      - %s\n", controller)
+				_, _ = fmt.Fprintf(rootCmd.OutOrStdout(), "      - %s\n", controller)
 			}
 		}
 	}

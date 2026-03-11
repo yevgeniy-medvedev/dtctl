@@ -64,8 +64,7 @@ Examples:
 
 		if dryRun {
 			changes := describeBreakpointEdits(conditionChanged, condition, enabledChanged, enabled)
-			printOutf("Dry run: would edit breakpoint %s (%s)\n", identifier, changes)
-			return nil
+			return printBreakpointMessage("edit", fmt.Sprintf("Dry run: would edit breakpoint %s (%s)", identifier, changes))
 		}
 
 		checker, err := NewSafetyChecker(cfg)
@@ -173,8 +172,7 @@ Examples:
 			}
 		}
 
-		printOutf("Edited breakpoint %s (%s)\n", targetDescription, describeBreakpointEdits(conditionChanged, condition, enabledChanged, enabled))
-		return nil
+		return printBreakpointMessage("edit", fmt.Sprintf("Edited breakpoint %s (%s)", targetDescription, describeBreakpointEdits(conditionChanged, condition, enabledChanged, enabled)))
 	},
 }
 

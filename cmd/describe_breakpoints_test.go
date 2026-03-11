@@ -135,3 +135,41 @@ func TestShouldHandleAsBreakpointDescribe(t *testing.T) {
 		})
 	}
 }
+
+func TestUseBreakpointDescribeTextView(t *testing.T) {
+	originalFormat := outputFormat
+	originalAgentMode := agentMode
+	defer func() { outputFormat = originalFormat }()
+	defer func() { agentMode = originalAgentMode }()
+
+	tests := []struct {
+		name   string
+		format string
+		want   bool
+	}{
+		{name: "default", format: "", want: true},
+		{name: "table", format: "table", want: true},
+		{name: "wide", format: "wide", want: true},
+		{name: "csv", format: "csv", want: true},
+		{name: "json", format: "json", want: false},
+		{name: "yaml", format: "yaml", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			agentMode = false
+			outputFormat = tt.format
+			if got := useBreakpointDescribeTextView(); got != tt.want {
+				t.Fatalf("useBreakpointDescribeTextView() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+
+	t.Run("agent mode forces structured view", func(t *testing.T) {
+		agentMode = true
+		outputFormat = "table"
+		if got := useBreakpointDescribeTextView(); got {
+			t.Fatalf("useBreakpointDescribeTextView() = %v, want false when agent mode enabled", got)
+		}
+	})
+}
