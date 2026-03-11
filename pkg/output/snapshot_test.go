@@ -162,7 +162,7 @@ func TestSnapshotPrinter_HandlesVariant2EdgeCases(t *testing.T) {
 	}
 	errorVariant := &rookout.Variant2{
 		VariantTypeMaxDepth: uint32(rookout.Variant_VARIANT_ERROR) << 1,
-		ErrorValue: &rookout.Error2{
+		ErrorValue: &rookout.Error2{ //nolint:all
 			Message:    "boom",
 			Parameters: formatted,
 			Exc:        largeInt,
