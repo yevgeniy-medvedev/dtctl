@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-03-11
+
+### Added
+- **Generic document resource** — full lifecycle management for Dynatrace documents via `dtctl get/describe/create/edit/delete/history/restore document`; supports all document types stored in the Document API
+
+### Changed
+- **DQL query `--metadata` flag** — include response metadata (e.g. query cost, execution time) in query output; supports format-specific rendering and an optional field allow-list to restrict which metadata fields are shown
+
+### Fixed
+- **Document version field unmarshalling** — the `version` field is now correctly handled whether the API returns it as a string or an integer, preventing unmarshalling errors on certain document types
+
 ## [0.14.4] - 2026-03-10
 
 ### Changed
