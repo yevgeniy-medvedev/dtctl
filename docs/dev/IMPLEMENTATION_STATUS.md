@@ -125,7 +125,7 @@ This document tracks the current implementation status of dtctl. For future plan
 - [x] File-based queries: `dtctl query -f query.dql`
 - [x] Template variables: `--set key=value`
 - [x] All output formats supported
-- [x] Decoded Live Debugger snapshots: `dtctl query "fetch application.snapshots | limit 5" --decode`
+- [x] Decoded Live Debugger snapshots: `dtctl query "fetch application.snapshots | limit 5" --decode-snapshots`
 - [x] Chart output for timeseries: `dtctl query "timeseries ..." -o chart`
 - [x] Live mode with periodic updates: `--live`, `--interval`
 - [x] Watch mode with incremental updates: `--watch`, `--interval`

@@ -34,7 +34,7 @@ func DecodeSnapshotRecords(records []map[string]interface{}, simplify bool) []ma
 	return result
 }
 
-// snapshotTableColumns defines the columns shown in table/CSV output when --decode is active.
+// snapshotTableColumns defines the columns shown in table/CSV output when --decode-snapshots is active.
 // Order matters: columns are displayed in this order.
 var snapshotTableColumns = []string{
 	"timestamp",

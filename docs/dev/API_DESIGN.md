@@ -68,7 +68,7 @@ dtctl is the "Runtime" companion to Monaco's "Build time."
 - **Default**: Human-readable TUI tables (ASCII).
 - **JSON** (`-o json`): Raw API response for piping (jq).
 - **YAML** (`-o yaml`): Reconstructed YAML for copy-pasting.
-- **Snapshot decoding** (`--decode`): Decoded Live Debugger snapshot payloads, composable with any output format.
+- **Snapshot decoding** (`--decode-snapshots`): Decoded Live Debugger snapshot payloads, composable with any output format.
 - **Charts**: Sparklines, bar charts, and line charts for timeseries data.
 
 ### 5. Handling Identity (Naming)
@@ -1727,21 +1727,21 @@ to JSON output with a warning. When more than 10 series are present, only the fi
 ### Snapshot Decoding (Live Debugger Query Output)
 ```bash
 # Decode and simplify snapshot payloads (variant wrappers → plain values)
-dtctl query "fetch application.snapshots | sort timestamp desc | limit 5" --decode
+dtctl query "fetch application.snapshots | sort timestamp desc | limit 5" --decode-snapshots
 
 # Full decoded tree with type annotations
-dtctl query "fetch application.snapshots | sort timestamp desc | limit 5" --decode=full
+dtctl query "fetch application.snapshots | sort timestamp desc | limit 5" --decode-snapshots=full
 
 # Compose with any output format
-dtctl query "fetch application.snapshots | limit 5" --decode -o json
-dtctl query "fetch application.snapshots | limit 5" --decode -o yaml
+dtctl query "fetch application.snapshots | limit 5" --decode-snapshots -o json
+dtctl query "fetch application.snapshots | limit 5" --decode-snapshots -o yaml
 ```
 
-The `--decode` flag enriches each record with `parsed_snapshot`, decoded from:
+The `--decode-snapshots` flag enriches each record with `parsed_snapshot`, decoded from:
 - `snapshot.data`
 - `snapshot.string_map`
 
-By default, `--decode` simplifies variant wrappers to plain values (e.g., `{"type": "Integer", "value": 42}` becomes `42`). Use `--decode=full` to preserve the full decoded tree with type annotations.
+By default, `--decode-snapshots` simplifies variant wrappers to plain values (e.g., `{"type": "Integer", "value": 42}` becomes `42`). Use `--decode-snapshots=full` to preserve the full decoded tree with type annotations.
 
 This flag is composable with any output format (`-o json`, `-o yaml`, `-o table`, `-o csv`, etc.), unlike the previous `-o snapshot` which was a standalone format locked to JSON output.
 

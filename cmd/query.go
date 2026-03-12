@@ -228,16 +228,16 @@ Examples:
 		}
 
 		// Get snapshot decode option
-		decodeVal, _ := cmd.Flags().GetString("decode")
+		decodeVal, _ := cmd.Flags().GetString("decode-snapshots")
 		var decodeMode exec.DecodeMode
-		if cmd.Flags().Changed("decode") {
+		if cmd.Flags().Changed("decode-snapshots") {
 			switch decodeVal {
 			case "", "simplified":
 				decodeMode = exec.DecodeSimplified
 			case "full":
 				decodeMode = exec.DecodeFull
 			default:
-				return fmt.Errorf("unsupported --decode value %q (use \"simplified\" or \"full\")", decodeVal)
+				return fmt.Errorf("unsupported --decode-snapshots value %q (use \"simplified\" or \"full\")", decodeVal)
 			}
 		}
 
@@ -361,10 +361,10 @@ analysisTimeframe,contributions`)
 	queryCmd.Flags().Lookup("metadata").NoOptDefVal = "all"
 
 	// Snapshot decode flag
-	queryCmd.Flags().String("decode", "", `decode Live Debugger snapshot payloads in query results
-bare --decode simplifies variant wrappers to plain values;
---decode=full preserves the full decoded tree with type annotations`)
-	queryCmd.Flags().Lookup("decode").NoOptDefVal = "simplified"
+	queryCmd.Flags().String("decode-snapshots", "", `decode Live Debugger snapshot payloads in query results
+bare --decode-snapshots simplifies variant wrappers to plain values;
+--decode-snapshots=full preserves the full decoded tree with type annotations`)
+	queryCmd.Flags().Lookup("decode-snapshots").NoOptDefVal = "simplified"
 
 	// Shell completion for --metadata field names (supports comma-separated values)
 	_ = queryCmd.RegisterFlagCompletionFunc("metadata", metadataFieldCompletion)

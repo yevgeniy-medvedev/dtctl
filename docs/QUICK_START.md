@@ -2933,17 +2933,17 @@ dtctl delete breakpoint --all -y
 
 ```bash
 # Simplified (variant wrappers flattened to plain values)
-dtctl query "fetch application.snapshots | sort timestamp desc | limit 5" --decode
+dtctl query "fetch application.snapshots | sort timestamp desc | limit 5" --decode-snapshots
 
 # Full decoded tree with type annotations
-dtctl query "fetch application.snapshots | sort timestamp desc | limit 5" --decode=full
+dtctl query "fetch application.snapshots | sort timestamp desc | limit 5" --decode-snapshots=full
 
 # Compose with any output format
-dtctl query "fetch application.snapshots | limit 5" --decode -o json
-dtctl query "fetch application.snapshots | limit 5" --decode -o yaml
+dtctl query "fetch application.snapshots | limit 5" --decode-snapshots -o json
+dtctl query "fetch application.snapshots | limit 5" --decode-snapshots -o yaml
 ```
 
-`--decode` enriches each record with `parsed_snapshot` decoded from `snapshot.data` and `snapshot.string_map`. By default, variant wrappers are simplified to plain values; use `--decode=full` to preserve type annotations.
+`--decode-snapshots` enriches each record with `parsed_snapshot` decoded from `snapshot.data` and `snapshot.string_map`. By default, variant wrappers are simplified to plain values; use `--decode-snapshots=full` to preserve type annotations.
 
 ---
 
