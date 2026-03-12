@@ -46,5 +46,5 @@ completions/
 # API specs (copied for reference, not tracked)
 .api-spec/
 
-# Snapshot data (may contain real environment data)
+# Snapshot data
 snapshot.json
