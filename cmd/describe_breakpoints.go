@@ -9,6 +9,8 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+
+	"github.com/dynatrace-oss/dtctl/pkg/resources/livedebugger"
 )
 
 type breakpointStatusResult struct {
@@ -143,12 +145,12 @@ func runDescribeBreakpoint(cmd *cobra.Command, identifier string) error {
 		return err
 	}
 	if allowDirectID {
-		targetRules = []map[string]interface{}{{"id": strings.TrimSpace(identifier)}}
+		targetRules = []livedebugger.BreakpointRule{{ID: strings.TrimSpace(identifier)}}
 	}
 
 	results := make([]breakpointStatusResult, 0, len(targetRules))
 	for _, rule := range targetRules {
-		ruleID := stringValue(rule["id"])
+		ruleID := rule.ID
 		statusResp, err := getRuleStatusBreakdownLiveDebugger(handler, ruleID)
 		if err != nil {
 			if verbose {
@@ -195,17 +197,17 @@ func useBreakpointDescribeTextView() bool {
 	return outputFormat == "" || outputFormat == "table" || outputFormat == "wide" || outputFormat == "csv"
 }
 
-func buildBreakpointStatusResult(rule map[string]interface{}, statusResp map[string]interface{}) (breakpointStatusResult, error) {
+func buildBreakpointStatusResult(rule livedebugger.BreakpointRule, statusResp map[string]interface{}) (breakpointStatusResult, error) {
 	result := breakpointStatusResult{
-		ID:      stringValue(rule["id"]),
-		Enabled: !boolValue(rule["is_disabled"]),
+		ID:      rule.ID,
+		Enabled: !rule.IsDisabled,
 	}
 	if row, ok := breakpointRowFromRule(rule); ok {
 		result.ID = row.ID
 		result.Location = fmt.Sprintf("%s:%d", row.Filename, row.Line)
 		result.Enabled = row.Active
 	}
-	result.DisableReason = stringValue(rule["disable_reason"])
+	result.DisableReason = rule.DisableReason
 
 	ruleStatuses, err := extractRuleStatuses(statusResp)
 	if err != nil {
@@ -240,27 +242,33 @@ func deriveOverallBreakpointStatus(result breakpointStatusResult) string {
 }
 
 func extractRuleStatuses(statusResp map[string]interface{}) ([]map[string]interface{}, error) {
-	dataObj, ok := statusResp["data"].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("graphql response missing data object")
+	statuses, err := livedebugger.ExtractRuleStatuses(statusResp)
+	if err != nil {
+		return nil, err
 	}
-	orgObj, ok := dataObj["org"].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("graphql response missing org object")
-	}
-	statusesIfc, ok := orgObj["ruleStatuses"].([]interface{})
-	if !ok {
-		return []map[string]interface{}{}, nil
-	}
-	statuses := make([]map[string]interface{}, 0, len(statusesIfc))
-	for _, statusIfc := range statusesIfc {
-		status, ok := statusIfc.(map[string]interface{})
-		if !ok {
-			continue
+	out := make([]map[string]interface{}, 0, len(statuses))
+	for _, status := range statuses {
+		rookStatuses := make([]interface{}, 0, len(status.RookStatuses))
+		for _, rook := range status.RookStatuses {
+			rookStatuses = append(rookStatuses, rook)
 		}
-		statuses = append(statuses, status)
+		agentStatuses := make([]interface{}, 0, len(status.AgentStatuses))
+		for _, agent := range status.AgentStatuses {
+			agentStatuses = append(agentStatuses, agent)
+		}
+		controllerStatuses := make([]interface{}, 0, len(status.ControllerStatuses))
+		for _, controller := range status.ControllerStatuses {
+			controllerStatuses = append(controllerStatuses, controller)
+		}
+
+		out = append(out, map[string]interface{}{
+			"status":             status.Status,
+			"rookStatuses":       rookStatuses,
+			"agentStatuses":      agentStatuses,
+			"controllerStatuses": controllerStatuses,
+		})
 	}
-	return statuses, nil
+	return out, nil
 }
 
 func extractRooksAndTipsByStatus(ruleStatuses []map[string]interface{}, statuses ...string) ([]breakpointRookInfo, []breakpointTip) {

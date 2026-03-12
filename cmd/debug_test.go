@@ -575,10 +575,10 @@ func TestBreakpointRowFromRule_LinenoTypesAndFallbacks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row, ok := breakpointRowFromRule(map[string]interface{}{
-				"id":          "bp-1",
-				"is_disabled": false,
-				"aug_json": map[string]interface{}{
+			row, ok := breakpointRowFromRule(livedebugger.BreakpointRule{
+				ID:         "bp-1",
+				IsDisabled: false,
+				AugJSON: map[string]interface{}{
 					"location": map[string]interface{}{"filename": "A.java", "lineno": tt.lineno},
 				},
 			})
@@ -591,7 +591,7 @@ func TestBreakpointRowFromRule_LinenoTypesAndFallbacks(t *testing.T) {
 		})
 	}
 
-	if _, ok := breakpointRowFromRule(map[string]interface{}{"id": "bp-1"}); ok {
+	if _, ok := breakpointRowFromRule(livedebugger.BreakpointRule{ID: "bp-1"}); ok {
 		t.Fatalf("expected rule without aug_json to fail")
 	}
 }

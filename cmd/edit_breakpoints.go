@@ -270,7 +270,7 @@ Examples:
 	},
 }
 
-func resolveBreakpointRulesForEdit(rules []map[string]interface{}, identifier string) ([]map[string]interface{}, string, bool, error) {
+func resolveBreakpointRulesForEdit(rules []livedebugger.BreakpointRule, identifier string) ([]livedebugger.BreakpointRule, string, bool, error) {
 	if fileName, lineNumber, err := parseBreakpoint(identifier); err == nil {
 		matches := findBreakpointRulesByLocation(rules, fileName, lineNumber)
 		if len(matches) == 0 {
@@ -280,20 +280,24 @@ func resolveBreakpointRulesForEdit(rules []map[string]interface{}, identifier st
 	}
 
 	if rule, ok := findBreakpointRuleByID(rules, identifier); ok {
-		return []map[string]interface{}{rule}, identifier, false, nil
+		return []livedebugger.BreakpointRule{rule}, identifier, false, nil
 	}
 
 	return nil, identifier, true, nil
 }
 
-func buildEditBreakpointSettings(rule map[string]interface{}, condition string, conditionChanged bool) (map[string]interface{}, error) {
+func buildEditBreakpointSettings(rule livedebugger.BreakpointRule, condition string, conditionChanged bool) (map[string]interface{}, error) {
 	row, ok := breakpointRowFromRule(rule)
 	if !ok || row.ID == "" {
 		return nil, fmt.Errorf("rule missing mutable rule id")
 	}
 
-	aug, ok := rule["aug_json"].(map[string]interface{})
-	if !ok {
+	aug := rule.AugJSON
+	if aug == nil {
+		return nil, fmt.Errorf("rule %s missing aug_json", row.ID)
+	}
+
+	if _, hasLocation := aug["location"].(map[string]interface{}); !hasLocation {
 		return nil, fmt.Errorf("rule %s missing aug_json", row.ID)
 	}
 
@@ -388,8 +392,13 @@ func parseThreadLocalPath(path string) (string, string, bool) {
 	return className, member, true
 }
 
-func extractBreakpointOutputMessage(rule map[string]interface{}) string {
-	processing, ok := rule["processing"].(map[string]interface{})
+func extractBreakpointOutputMessage(rule livedebugger.BreakpointRule) string {
+	processing := rule.Processing
+	if processing == nil {
+		return breakpointDefaultOutputMessage
+	}
+
+	_, ok := processing["operations"].([]interface{})
 	if !ok {
 		return breakpointDefaultOutputMessage
 	}
@@ -412,8 +421,13 @@ func extractBreakpointOutputMessage(rule map[string]interface{}) string {
 	return breakpointDefaultOutputMessage
 }
 
-func extractBreakpointTargetID(rule map[string]interface{}) string {
-	processing, ok := rule["processing"].(map[string]interface{})
+func extractBreakpointTargetID(rule livedebugger.BreakpointRule) string {
+	processing := rule.Processing
+	if processing == nil {
+		return breakpointRookoutTargetID
+	}
+
+	_, ok := processing["operations"].([]interface{})
 	if !ok {
 		return breakpointRookoutTargetID
 	}
@@ -435,8 +449,8 @@ func extractBreakpointTargetID(rule map[string]interface{}) string {
 	return breakpointRookoutTargetID
 }
 
-func findBreakpointRulesByLocation(rules []map[string]interface{}, fileName string, lineNumber int) []map[string]interface{} {
-	matches := make([]map[string]interface{}, 0)
+func findBreakpointRulesByLocation(rules []livedebugger.BreakpointRule, fileName string, lineNumber int) []livedebugger.BreakpointRule {
+	matches := make([]livedebugger.BreakpointRule, 0)
 	for _, rule := range rules {
 		row, ok := breakpointRowFromRule(rule)
 		if !ok {
@@ -449,14 +463,13 @@ func findBreakpointRulesByLocation(rules []map[string]interface{}, fileName stri
 	return matches
 }
 
-func findBreakpointRuleByID(rules []map[string]interface{}, id string) (map[string]interface{}, bool) {
+func findBreakpointRuleByID(rules []livedebugger.BreakpointRule, id string) (livedebugger.BreakpointRule, bool) {
 	for _, rule := range rules {
-		row, ok := breakpointRowFromRule(rule)
-		if ok && row.ID == id {
+		if rule.ID == id {
 			return rule, true
 		}
 	}
-	return nil, false
+	return livedebugger.BreakpointRule{}, false
 }
 
 func stringValue(value interface{}) string {

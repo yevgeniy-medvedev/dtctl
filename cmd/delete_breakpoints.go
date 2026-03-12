@@ -274,36 +274,7 @@ func findBreakpointRowByID(rows []breakpointRow, id string) (breakpointRow, bool
 }
 
 func extractDeletedBreakpointIDs(deleteResp map[string]interface{}) ([]string, error) {
-	dataObj, ok := deleteResp["data"].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("graphql response missing data object")
-	}
-
-	orgObj, ok := dataObj["org"].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("graphql response missing org object")
-	}
-
-	workspaceObj, ok := orgObj["workspace"].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("graphql response missing workspace object")
-	}
-
-	deletedIfc, ok := workspaceObj["deleteAllRulesFromWorkspaceV2"].([]interface{})
-	if !ok {
-		return nil, fmt.Errorf("graphql response missing deleted ids list")
-	}
-
-	deletedIDs := make([]string, 0, len(deletedIfc))
-	for _, idIfc := range deletedIfc {
-		id, ok := idIfc.(string)
-		if !ok || id == "" {
-			continue
-		}
-		deletedIDs = append(deletedIDs, id)
-	}
-
-	return deletedIDs, nil
+	return livedebugger.ExtractDeletedRuleIDs(deleteResp)
 }
 
 func formatBreakpointLocation(row breakpointRow) string {

@@ -71,7 +71,7 @@ func (h *Handler) GetOrCreateWorkspace(projectPath string) (map[string]interface
 		return nil, "", err
 	}
 
-	workspaceID, err := extractWorkspaceID(resp)
+	workspaceID, err := ExtractWorkspaceID(resp)
 	if err != nil {
 		return resp, "", err
 	}
@@ -489,30 +489,6 @@ func extractOrgID(environmentURL string) (string, error) {
 	}
 
 	return parts[0], nil
-}
-
-func extractWorkspaceID(resp map[string]interface{}) (string, error) {
-	dataObj, ok := resp["data"].(map[string]interface{})
-	if !ok {
-		return "", fmt.Errorf("graphql response missing data object")
-	}
-
-	orgObj, ok := dataObj["org"].(map[string]interface{})
-	if !ok {
-		return "", fmt.Errorf("graphql response missing org object")
-	}
-
-	workspaceObj, ok := orgObj["getOrCreateUserWorkspaceV2"].(map[string]interface{})
-	if !ok {
-		return "", fmt.Errorf("graphql response missing getOrCreateUserWorkspaceV2 object")
-	}
-
-	workspaceID, ok := workspaceObj["id"].(string)
-	if !ok || workspaceID == "" {
-		return "", fmt.Errorf("graphql response missing workspace id")
-	}
-
-	return workspaceID, nil
 }
 
 func generateMutableRuleID() string {

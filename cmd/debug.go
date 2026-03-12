@@ -220,42 +220,13 @@ func extractBreakpointRows(workspaceRulesResp map[string]interface{}) ([]breakpo
 	return rows, nil
 }
 
-func extractWorkspaceRules(workspaceRulesResp map[string]interface{}) ([]map[string]interface{}, error) {
-	dataObj, ok := workspaceRulesResp["data"].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("graphql response missing data object")
-	}
-
-	orgObj, ok := dataObj["org"].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("graphql response missing org object")
-	}
-
-	workspaceObj, ok := orgObj["workspace"].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("graphql response missing workspace object")
-	}
-
-	rulesIfc, ok := workspaceObj["rules"].([]interface{})
-	if !ok {
-		return nil, fmt.Errorf("graphql response missing rules list")
-	}
-
-	rules := make([]map[string]interface{}, 0, len(rulesIfc))
-	for _, ruleIfc := range rulesIfc {
-		rule, ok := ruleIfc.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		rules = append(rules, rule)
-	}
-
-	return rules, nil
+func extractWorkspaceRules(workspaceRulesResp map[string]interface{}) ([]livedebugger.BreakpointRule, error) {
+	return livedebugger.ExtractWorkspaceRules(workspaceRulesResp)
 }
 
-func breakpointRowFromRule(rule map[string]interface{}) (breakpointRow, bool) {
-	augJSON, ok := rule["aug_json"].(map[string]interface{})
-	if !ok {
+func breakpointRowFromRule(rule livedebugger.BreakpointRule) (breakpointRow, bool) {
+	augJSON := rule.AugJSON
+	if augJSON == nil {
 		return breakpointRow{}, false
 	}
 
@@ -264,7 +235,7 @@ func breakpointRowFromRule(rule map[string]interface{}) (breakpointRow, bool) {
 		return breakpointRow{}, false
 	}
 
-	id, _ := rule["id"].(string)
+	id := rule.ID
 	filename, _ := location["filename"].(string)
 	if filename == "" {
 		return breakpointRow{}, false
@@ -282,7 +253,7 @@ func breakpointRowFromRule(rule map[string]interface{}) (breakpointRow, bool) {
 		line = int(lineno)
 	}
 
-	isDisabled, _ := rule["is_disabled"].(bool)
+	isDisabled := rule.IsDisabled
 	return breakpointRow{ID: id, Filename: filename, Line: line, Active: !isDisabled}, true
 }
 

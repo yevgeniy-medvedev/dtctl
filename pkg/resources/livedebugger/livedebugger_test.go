@@ -100,7 +100,7 @@ func TestExtractOrgID(t *testing.T) {
 }
 
 func TestExtractWorkspaceID(t *testing.T) {
-	if _, err := extractWorkspaceID(map[string]interface{}{}); err == nil {
+	if _, err := ExtractWorkspaceID(map[string]interface{}{}); err == nil {
 		t.Fatalf("expected missing data error")
 	}
 
@@ -111,7 +111,7 @@ func TestExtractWorkspaceID(t *testing.T) {
 			},
 		},
 	}
-	id, err := extractWorkspaceID(resp)
+	id, err := ExtractWorkspaceID(resp)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

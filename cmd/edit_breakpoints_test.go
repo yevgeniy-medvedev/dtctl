@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/dynatrace-oss/dtctl/pkg/resources/livedebugger"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -55,9 +56,9 @@ func TestUpdateBreakpointFilters_NoIdentifier_NoPanic(t *testing.T) {
 }
 
 func TestBuildEditBreakpointSettings(t *testing.T) {
-	rule := map[string]interface{}{
-		"id": "dtctl-rule-1",
-		"aug_json": map[string]interface{}{
+	rule := livedebugger.BreakpointRule{
+		ID: "dtctl-rule-1",
+		AugJSON: map[string]interface{}{
 			"action": map[string]interface{}{
 				"operations": []interface{}{
 					map[string]interface{}{
@@ -82,7 +83,7 @@ func TestBuildEditBreakpointSettings(t *testing.T) {
 			},
 			"rateLimit": "150/20000",
 		},
-		"processing": map[string]interface{}{
+		Processing: map[string]interface{}{
 			"operations": []interface{}{
 				map[string]interface{}{"name": "set", "paths": map[string]interface{}{"temp.message.rookout": "store.rookout"}},
 				map[string]interface{}{"name": "format", "path": "temp.message.rookout.message", "format": "Hit on {store.rookout.frame.filename}:{store.rookout.frame.line}"},
@@ -139,16 +140,16 @@ func TestBuildEditBreakpointSettings(t *testing.T) {
 }
 
 func TestResolveBreakpointRulesForEdit(t *testing.T) {
-	rules := []map[string]interface{}{
+	rules := []livedebugger.BreakpointRule{
 		{
-			"id": "bp-1",
-			"aug_json": map[string]interface{}{
+			ID: "bp-1",
+			AugJSON: map[string]interface{}{
 				"location": map[string]interface{}{"filename": "A.java", "lineno": float64(10)},
 			},
 		},
 		{
-			"id": "bp-2",
-			"aug_json": map[string]interface{}{
+			ID: "bp-2",
+			AugJSON: map[string]interface{}{
 				"location": map[string]interface{}{"filename": "A.java", "lineno": float64(10)},
 			},
 		},

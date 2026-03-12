@@ -13,11 +13,11 @@ import (
 )
 
 func TestBuildBreakpointStatusResult(t *testing.T) {
-	rule := map[string]interface{}{
-		"id":             "bp-1",
-		"is_disabled":    false,
-		"disable_reason": "",
-		"aug_json": map[string]interface{}{
+	rule := livedebugger.BreakpointRule{
+		ID:            "bp-1",
+		IsDisabled:    false,
+		DisableReason: "",
+		AugJSON: map[string]interface{}{
 			"location": map[string]interface{}{
 				"filename": "OrderController.java",
 				"lineno":   float64(306),
