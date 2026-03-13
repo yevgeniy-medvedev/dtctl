@@ -2,6 +2,7 @@ package exec
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -72,7 +73,7 @@ func TestDQLExecutor_ExecuteQueryWithOptions_CustomHeaders(t *testing.T) {
 			defer server.Close()
 
 			// Create client pointing to test server
-			c, err := client.New(server.URL, "test-token")
+			c, err := client.NewForTesting(server.URL, "test-token")
 			if err != nil {
 				t.Fatalf("failed to create client: %v", err)
 			}
@@ -130,7 +131,7 @@ func TestDQLExecutor_ExecuteQuery_BackwardCompatibility(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c, err := client.New(server.URL, "test-token")
+	c, err := client.NewForTesting(server.URL, "test-token")
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
@@ -186,7 +187,7 @@ func TestDQLExecutor_ExecuteQueryWithOptions_PollingWithBodyParams(t *testing.T)
 	}))
 	defer server.Close()
 
-	c, err := client.New(server.URL, "test-token")
+	c, err := client.NewForTesting(server.URL, "test-token")
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
@@ -255,7 +256,7 @@ func TestDQLExecutor_ExecuteQueryWithOptions_ErrorHandling(t *testing.T) {
 			}))
 			defer server.Close()
 
-			c, err := client.New(server.URL, "test-token")
+			c, err := client.NewForTesting(server.URL, "test-token")
 			if err != nil {
 				t.Fatalf("failed to create client: %v", err)
 			}
@@ -536,7 +537,7 @@ func TestNewDQLExecutor(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c, err := client.New(server.URL, "test-token")
+	c, err := client.NewForTesting(server.URL, "test-token")
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
@@ -563,7 +564,7 @@ func TestDQLExecutor_ExecuteQueryWithOptions_RunningNoToken(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c, err := client.New(server.URL, "test-token")
+	c, err := client.NewForTesting(server.URL, "test-token")
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
@@ -602,7 +603,7 @@ func TestDQLExecutor_ExecuteQueryWithOptions_PollFailed(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c, err := client.New(server.URL, "test-token")
+	c, err := client.NewForTesting(server.URL, "test-token")
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
@@ -639,7 +640,7 @@ func TestDQLExecutor_ExecuteQueryWithOptions_AllParameters(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c, err := client.New(server.URL, "test-token")
+	c, err := client.NewForTesting(server.URL, "test-token")
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
@@ -735,7 +736,7 @@ func TestDQLExecutor_ExecuteQueryWithOptions_IncludeContributions_OmittedWhenFal
 	}))
 	defer server.Close()
 
-	c, err := client.New(server.URL, "test-token")
+	c, err := client.NewForTesting(server.URL, "test-token")
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
@@ -778,7 +779,7 @@ func TestDQLExecutor_ExecuteQueryWithOptions_IncludeContributions_SentWhenTrue(t
 	}))
 	defer server.Close()
 
-	c, err := client.New(server.URL, "test-token")
+	c, err := client.NewForTesting(server.URL, "test-token")
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
@@ -823,7 +824,7 @@ func TestVerifyQuery_Valid(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c, err := client.New(server.URL, "test-token")
+	c, err := client.NewForTesting(server.URL, "test-token")
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
@@ -867,7 +868,7 @@ func TestVerifyQuery_Invalid(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c, err := client.New(server.URL, "test-token")
+	c, err := client.NewForTesting(server.URL, "test-token")
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
@@ -920,7 +921,7 @@ func TestVerifyQuery_WithCanonical(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c, err := client.New(server.URL, "test-token")
+	c, err := client.NewForTesting(server.URL, "test-token")
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
@@ -969,7 +970,7 @@ func TestVerifyQuery_WithTimezone(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c, err := client.New(server.URL, "test-token")
+	c, err := client.NewForTesting(server.URL, "test-token")
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
@@ -1009,7 +1010,7 @@ func TestVerifyQuery_WithLocale(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c, err := client.New(server.URL, "test-token")
+	c, err := client.NewForTesting(server.URL, "test-token")
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
@@ -1050,7 +1051,7 @@ func TestVerifyQuery_WithAllOptions(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c, err := client.New(server.URL, "test-token")
+	c, err := client.NewForTesting(server.URL, "test-token")
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
@@ -1095,7 +1096,7 @@ func TestVerifyQuery_WithAllOptions(t *testing.T) {
 // TestVerifyQuery_NetworkError tests handling of network errors
 func TestVerifyQuery_NetworkError(t *testing.T) {
 	// Create client pointing to non-existent server
-	c, err := client.New("http://localhost:0", "test-token")
+	c, err := client.NewForTesting("http://localhost:0", "test-token")
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
@@ -1121,7 +1122,7 @@ func TestVerifyQuery_AuthError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c, err := client.New(server.URL, "test-token")
+	c, err := client.NewForTesting(server.URL, "test-token")
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
@@ -1170,7 +1171,7 @@ func TestVerifyQuery_ServerError(t *testing.T) {
 			}))
 			defer server.Close()
 
-			c, err := client.New(server.URL, "test-token")
+			c, err := client.NewForTesting(server.URL, "test-token")
 			if err != nil {
 				t.Fatalf("failed to create client: %v", err)
 			}
@@ -1589,4 +1590,109 @@ func TestExtractQueryMetadata_ResultMetadataPrecedence(t *testing.T) {
 	if meta.QueryID != "result-level-id" {
 		t.Errorf("expected result-level metadata to take precedence, got QueryID=%q", meta.QueryID)
 	}
+}
+
+func TestDQLExecutor_Execute_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := DQLQueryResponse{
+			State: "SUCCEEDED",
+			Result: &DQLResult{
+				Records: []map[string]interface{}{
+					{"host.name": "server-01", "dt.entity.host": "HOST-1"},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	c, err := client.NewForTesting(server.URL, "test-token")
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+
+	executor := NewDQLExecutor(c)
+	// Execute writes output to stdout/file — just verify no error
+	err = executor.Execute("fetch hosts", "json")
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+}
+
+func TestDQLExecutor_ExecuteWithOptions_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := DQLQueryResponse{
+			State: "SUCCEEDED",
+			Result: &DQLResult{
+				Records: []map[string]interface{}{{"event.name": "deploy"}},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	c, err := client.NewForTesting(server.URL, "test-token")
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+
+	executor := NewDQLExecutor(c)
+	err = executor.ExecuteWithOptions("fetch events", DQLExecuteOptions{OutputFormat: "json"})
+	if err != nil {
+		t.Fatalf("ExecuteWithOptions() error = %v", err)
+	}
+}
+
+func TestDQLExecutor_ExecuteWithOptions_QueryError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, `{"error":"invalid query"}`)
+	}))
+	defer server.Close()
+
+	c, err := client.NewForTesting(server.URL, "test-token")
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+
+	executor := NewDQLExecutor(c)
+	err = executor.ExecuteWithOptions("INVALID QUERY", DQLExecuteOptions{})
+	if err == nil {
+		t.Fatal("expected error for bad query, got nil")
+	}
+}
+
+func TestDQLExecutor_PrintNotifications_Warning(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer server.Close()
+	c, err := client.NewForTesting(server.URL, "test-token")
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+	executor := NewDQLExecutor(c)
+
+	// Should not panic or error — output goes to os.Stderr
+	notifications := []QueryNotification{
+		{Severity: "WARNING", Message: "scan limit reached", NotificationType: "SCAN_LIMIT"},
+		{Severity: "ERROR", Message: "result limit reached", NotificationType: "RESULT_LIMIT_RECORDS"},
+		{Severity: "INFO", Message: "info message"},
+		{Message: "no severity set"},
+	}
+	executor.PrintNotifications(notifications) // Just verify no panic
+}
+
+func TestDQLExecutor_PrintNotifications_Empty(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer server.Close()
+	c, err := client.NewForTesting(server.URL, "test-token")
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+	executor := NewDQLExecutor(c)
+	executor.PrintNotifications(nil)                   // nil — should be no-op
+	executor.PrintNotifications([]QueryNotification{}) // empty — should be no-op
 }
