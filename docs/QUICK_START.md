@@ -480,6 +480,9 @@ dtctl exec workflow workflow-123 --wait
 
 # Execute with custom timeout
 dtctl exec workflow workflow-123 --wait --timeout 10m
+
+# Execute, wait, and print each task's return value when done
+dtctl exec workflow workflow-123 --wait --show-results
 ```
 
 ### View Executions
@@ -511,6 +514,20 @@ dtctl logs wfe exec-456 --all
 
 # View logs for a specific task
 dtctl logs wfe exec-456 --task check_errors
+```
+
+### View Task Results
+
+Retrieve the structured return value of a specific task (distinct from log output):
+
+```bash
+# Get the return value of a task
+dtctl get wfe-task-result exec-456 --task my_task
+dtctl get wfe-task-result exec-456 -t my_task
+
+# Output as JSON or YAML
+dtctl get wfe-task-result exec-456 --task my_task -o json
+dtctl get wfe-task-result exec-456 --task my_task -o yaml
 ```
 
 ### Watch Workflows

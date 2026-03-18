@@ -37,7 +37,7 @@ Supported resources:
   users                   groups                    edgeconnect (ec)
   sdk-versions            analyzers                 copilot-skills
   lookup-tables (lu)      trash                     workflow-executions (wfe)
-  extensions (ext)        extension-configs (extcfg)
+  wfe-task-result         extensions (ext)          extension-configs (extcfg)
 
 Use 'dtctl get <resource> --help' for resource-specific options.`,
 	Example: `  # List all workflows
@@ -147,6 +147,7 @@ func init() {
 	getCmd.AddCommand(getExtensionsCmd)
 	getCmd.AddCommand(getExtensionConfigsCmd)
 	getCmd.AddCommand(getDocumentsCmd)
+	getCmd.AddCommand(getWfeTaskResultCmd)
 
 	// Delete subcommands (command definitions live in get_*.go files)
 

@@ -197,6 +197,50 @@ func TestListTasks_ServerError(t *testing.T) {
 	}
 }
 
+func TestListTasks_WithResults(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/platform/automation/v1/executions/exec-1/tasks", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		// Simulate a response where tasks have Result populated
+		fmt.Fprint(w, `{
+			"js_task": {"id":"t1","name":"js_task","state":"SUCCESS","result":{"answer":42}},
+			"dql_task": {"id":"t2","name":"dql_task","state":"SUCCESS","result":null}
+		}`)
+	})
+	h, cleanup := newExecTestHandler(t, mux)
+	defer cleanup()
+
+	tasks, err := h.ListTasks("exec-1")
+	if err != nil {
+		t.Fatalf("ListTasks() error = %v", err)
+	}
+	if len(tasks) != 2 {
+		t.Errorf("expected 2 tasks, got %d", len(tasks))
+	}
+
+	// Find the task with a result
+	var found bool
+	for _, task := range tasks {
+		if task.Name == "js_task" {
+			found = true
+			if task.Result == nil {
+				t.Error("expected js_task to have a non-nil Result")
+			}
+			// Verify the result was deserialized correctly
+			m, ok := task.Result.(map[string]any)
+			if !ok {
+				t.Fatalf("expected Result to be map[string]any, got %T", task.Result)
+			}
+			if m["answer"] != float64(42) {
+				t.Errorf("expected answer=42, got %v", m["answer"])
+			}
+		}
+	}
+	if !found {
+		t.Error("js_task not found in ListTasks results")
+	}
+}
+
 // --- GetTaskLog ---
 
 func TestGetTaskLog_JSONString(t *testing.T) {
@@ -385,5 +429,56 @@ func TestSortTasksByStartTime(t *testing.T) {
 	// nil should be last
 	if tasks[len(tasks)-1].StartedAt != nil {
 		t.Error("expected nil StartedAt to be last")
+	}
+}
+
+// --- GetTaskResult ---
+
+func TestGetTaskResult_Success(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/platform/automation/v1/executions/exec-1/tasks/rca_analysis/result", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("unexpected method: got %s, want GET", r.Method)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"results": []any{map[string]any{"id": "1"}}})
+	})
+	h, cleanup := newExecTestHandler(t, mux)
+	defer cleanup()
+
+	result, err := h.GetTaskResult("exec-1", "rca_analysis")
+	if err != nil {
+		t.Fatalf("GetTaskResult() error = %v", err)
+	}
+	if result == nil {
+		t.Fatal("GetTaskResult() returned nil")
+	}
+}
+
+func TestGetTaskResult_NotFound(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/platform/automation/v1/executions/exec-bad/tasks/missing/result", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	})
+	h, cleanup := newExecTestHandler(t, mux)
+	defer cleanup()
+
+	_, err := h.GetTaskResult("exec-bad", "missing")
+	if err == nil {
+		t.Fatal("expected error for 404 response")
+	}
+}
+
+func TestGetTaskResult_ServerError(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/platform/automation/v1/executions/exec-err/tasks/t1/result", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+	h, cleanup := newExecTestHandler(t, mux)
+	defer cleanup()
+
+	_, err := h.GetTaskResult("exec-err", "t1")
+	if err == nil {
+		t.Fatal("expected error for 500 response")
 	}
 }

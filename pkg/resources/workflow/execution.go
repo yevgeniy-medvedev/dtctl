@@ -171,6 +171,25 @@ func (h *ExecutionHandler) GetTaskLog(executionID, taskName string) (string, err
 	return body, nil
 }
 
+// GetTaskResult retrieves the structured return value of a specific task execution
+func (h *ExecutionHandler) GetTaskResult(executionID, taskName string) (any, error) {
+	var result any
+
+	resp, err := h.client.HTTP().R().
+		SetResult(&result).
+		Get(fmt.Sprintf("/platform/automation/v1/executions/%s/tasks/%s/result", executionID, taskName))
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get task result: %w", err)
+	}
+
+	if resp.IsError() {
+		return nil, fmt.Errorf("failed to get task result: status %d: %s", resp.StatusCode(), resp.String())
+	}
+
+	return result, nil
+}
+
 // GetExecutionLog retrieves the combined log output of all tasks in an execution
 func (h *ExecutionHandler) GetExecutionLog(executionID string) (string, error) {
 	resp, err := h.client.HTTP().R().
