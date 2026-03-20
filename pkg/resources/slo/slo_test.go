@@ -168,25 +168,20 @@ func TestList(t *testing.T) {
 					return
 				}
 
-				// Simulate API constraint: page-size and filter must not be combined with page-key
+				// Simulate API constraint: page-size must not be combined with page-key
 				if r.URL.Query().Get("page-key") != "" {
 					if r.URL.Query().Get("page-size") != "" {
 						t.Error("page-size must not be sent with page-key")
 						w.WriteHeader(http.StatusBadRequest)
 						return
 					}
-					if r.URL.Query().Get("filter") != "" {
-						t.Error("filter must not be sent with page-key")
-						w.WriteHeader(http.StatusBadRequest)
-						return
-					}
 				}
 
-				// Verify filter parameter if provided (only on first page)
-				if tt.filter != "" && r.URL.Query().Get("page-key") == "" {
+				// Verify filter is sent on every request (page tokens may not preserve it)
+				if tt.filter != "" {
 					filter := r.URL.Query().Get("filter")
 					if filter != tt.filter {
-						t.Errorf("expected filter %q, got %q", tt.filter, filter)
+						t.Errorf("expected filter %q on every request, got %q", tt.filter, filter)
 					}
 				}
 

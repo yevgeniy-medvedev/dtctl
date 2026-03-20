@@ -124,17 +124,17 @@ func (h *TrashHandler) List(opts TrashListOptions) ([]TrashDocumentListEntry, er
 		var result TrashList
 		req := h.client.HTTP().R().SetResult(&result)
 
-		// When using nextPageKey, ONLY send the page key parameter.
-		// The API rejects requests that combine page-size with page-key.
+		// Send page-size and filter on every request.
+		// The Document API accepts page-size with page-key (unlike some other DT APIs),
+		// and filter must be resent because the page token does NOT preserve it.
 		if nextPageKey != "" {
 			req.SetQueryParam("page-key", nextPageKey)
-		} else {
-			if filterStr != "" {
-				req.SetQueryParam("filter", filterStr)
-			}
-			if opts.ChunkSize > 0 {
-				req.SetQueryParam("page-size", fmt.Sprintf("%d", opts.ChunkSize))
-			}
+		}
+		if opts.ChunkSize > 0 {
+			req.SetQueryParam("page-size", fmt.Sprintf("%d", opts.ChunkSize))
+		}
+		if filterStr != "" {
+			req.SetQueryParam("filter", filterStr)
 		}
 
 		resp, err := req.Get("/platform/document/v1/trash/documents")

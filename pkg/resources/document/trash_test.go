@@ -90,19 +90,7 @@ func TestTrashHandler_List(t *testing.T) {
 					t.Errorf("Expected path /platform/document/v1/trash/documents, got %s", r.URL.Path)
 				}
 
-				// Simulate API constraint: page-size and filter must not be combined with page-key
-				if r.URL.Query().Get("page-key") != "" {
-					if r.URL.Query().Get("page-size") != "" {
-						t.Error("page-size must not be sent with page-key")
-						w.WriteHeader(http.StatusBadRequest)
-						return
-					}
-					if r.URL.Query().Get("filter") != "" {
-						t.Error("filter must not be sent with page-key")
-						w.WriteHeader(http.StatusBadRequest)
-						return
-					}
-				}
+				// Document API accepts page-size with page-key (no constraint to simulate here)
 
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
@@ -190,18 +178,13 @@ func TestTrashHandler_List_Pagination(t *testing.T) {
 			t.Errorf("Expected path /platform/document/v1/trash/documents, got %s", r.URL.Path)
 		}
 
-		// Simulate API constraint: page-size and filter must not be combined with page-key
-		if r.URL.Query().Get("page-key") != "" {
-			if r.URL.Query().Get("page-size") != "" {
-				t.Error("page-size must not be sent with page-key")
-				w.WriteHeader(http.StatusBadRequest)
-				return
-			}
-			if r.URL.Query().Get("filter") != "" {
-				t.Error("filter must not be sent with page-key")
-				w.WriteHeader(http.StatusBadRequest)
-				return
-			}
+		// Document API accepts page-size with page-key (no constraint to simulate here)
+
+		// Verify filter is sent on every request (page tokens do NOT preserve it)
+		if r.URL.Query().Get("filter") == "" {
+			t.Error("filter must be sent on every request, including subsequent pages")
+			w.WriteHeader(http.StatusBadRequest)
+			return
 		}
 
 		if pageIndex >= len(pages) {

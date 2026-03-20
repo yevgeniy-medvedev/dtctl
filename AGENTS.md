@@ -193,14 +193,17 @@ Never put customer names, employee names, usernames, or specific Dynatrace envir
 ❌ **Don't** skip safety checks on mutating commands  
 ✅ **Do** add safety checks to ALL create/edit/apply/delete/update commands
 
-❌ **Don't** send `page-size` (or filter params) together with `next-page-key`/`page-key` on paginated requests  
-✅ **Do** use the `if/else` pagination pattern (see below)
+❌ **Don't** send `page-size` together with `next-page-key`/`page-key` on paginated requests  
+❌ **Don't** drop filter/search params on subsequent pages — page tokens do NOT always preserve them  
+✅ **Do** use the pagination pattern below: only `page-size` goes in the if/else; filters go outside
 
 ## Pagination Pattern (CRITICAL)
 
-Dynatrace APIs **reject** requests that combine `page-size` with `next-page-key`/`page-key` (HTTP 400). When implementing paginated list endpoints, use an **if/else branch** so that subsequent page requests send **only** the page key and omit all other query parameters (page-size, filters, etc.).
+Dynatrace APIs **reject** requests that combine `page-size` with `next-page-key`/`page-key` (HTTP 400). However, **page tokens do NOT always preserve filter parameters** — the Document API is a confirmed example where the `filter` param is dropped on page 2+ if not resent. To be safe, **always resend filter/search params on every page request**, and only exclude `page-size` when a page key is present.
 
-### Correct pattern
+**Exception — Document API**: The Document API (`/platform/document/v1/documents`) does **not** reject `page-size` + `page-key`. It also does **not** embed the page size in the page token (defaulting to 20/page if `page-size` is omitted). For Document API endpoints, send `page-size` on every request alongside `page-key`. See `pkg/resources/document/document.go` for the reference implementation.
+
+### Correct pattern (default — most APIs)
 
 ```go
 for {
@@ -208,8 +211,72 @@ for {
 
     if nextPageKey != "" {
         req.SetQueryParam("page-key", nextPageKey)
+    } else if chunkSize > 0 {
+        req.SetQueryParam("page-size", fmt.Sprintf("%d", chunkSize))
+    }
+    // Always send filter, regardless of pagination
+    if filter != "" {
+        req.SetQueryParam("filter", filter)
+    }
+
+    resp, err := req.Get("/platform/...")
+    // ... handle response, break if no more pages
+}
+```
+
+### Correct pattern (Document API — accepts page-size with page-key)
+
+```go
+for {
+    req := h.client.HTTP().R().SetResult(&result)
+
+    if nextPageKey != "" {
+        req.SetQueryParam("page-key", nextPageKey)
+    }
+    // Document API: send page-size and filter on EVERY request
+    if chunkSize > 0 {
+        req.SetQueryParam("page-size", fmt.Sprintf("%d", chunkSize))
+    }
+    if filter != "" {
+        req.SetQueryParam("filter", filter)
+    }
+
+    resp, err := req.Get("/platform/document/v1/documents")
+    // ... handle response, break if no more pages
+}
+```
+
+### Wrong pattern 1: sending page-size with page-key (causes HTTP 400 on non-Document APIs)
+
+```go
+for {
+    req := h.client.HTTP().R().SetResult(&result)
+
+    // BUG: page-size is sent on EVERY request, including subsequent pages
+    if chunkSize > 0 {
+        req.SetQueryParam("page-size", fmt.Sprintf("%d", chunkSize))
+    }
+    if filter != "" {
+        req.SetQueryParam("filter", filter)
+    }
+    if nextPageKey != "" {
+        req.SetQueryParam("page-key", nextPageKey)
+    }
+
+    resp, err := req.Get("/platform/...")
+}
+```
+
+### Wrong pattern 2: dropping filter on page 2+ (causes unfiltered results)
+
+```go
+for {
+    req := h.client.HTTP().R().SetResult(&result)
+
+    if nextPageKey != "" {
+        // BUG: only sends page-key, drops filter on subsequent pages
+        req.SetQueryParam("page-key", nextPageKey)
     } else {
-        // First request only: set filters and page size
         if filter != "" {
             req.SetQueryParam("filter", filter)
         }
@@ -219,34 +286,12 @@ for {
     }
 
     resp, err := req.Get("/platform/...")
-    // ... handle response, break if no more pages
 }
 ```
 
-### Wrong pattern (causes HTTP 400 on page 2+)
+### Test guard (required for paginated mock servers of non-Document APIs)
 
-```go
-for {
-    req := h.client.HTTP().R().SetResult(&result)
-
-    // BUG: these are sent on EVERY request, including subsequent pages
-    if filter != "" {
-        req.SetQueryParam("filter", filter)
-    }
-    if chunkSize > 0 {
-        req.SetQueryParam("page-size", fmt.Sprintf("%d", chunkSize))
-    }
-    if nextPageKey != "" {
-        req.SetQueryParam("page-key", nextPageKey)
-    }
-
-    resp, err := req.Get("/platform/...")
-}
-```
-
-### Test guard (required for all paginated mock servers)
-
-Every test mock server for a paginated endpoint **must** include a constraint guard that rejects the invalid combination, so the bug is caught in tests:
+Every test mock server for a paginated endpoint (except Document API) **must** include a constraint guard that rejects the invalid combination, so the bug is caught in tests:
 
 ```go
 // Simulate API constraint: page-size must not be combined with page-key
@@ -257,7 +302,7 @@ if r.URL.Query().Get("page-size") != "" && r.URL.Query().Get("page-key") != "" {
 }
 ```
 
-**Reference implementations**: `pkg/resources/settings/settings.go`, `pkg/resources/extension/extension.go`
+**Reference implementations**: `pkg/resources/document/document.go` (Document API pattern), `pkg/resources/settings/settings.go`, `pkg/resources/extension/extension.go` (default pattern)
 
 ## Code Examples
 

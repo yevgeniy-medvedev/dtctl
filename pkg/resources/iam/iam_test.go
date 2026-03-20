@@ -219,38 +219,28 @@ func TestListUsers(t *testing.T) {
 					return
 				}
 
-				// Simulate API constraint: page-size and filter params must not be combined with page-key
+				// Simulate API constraint: page-size must not be combined with page-key
 				if r.URL.Query().Get("page-key") != "" {
 					if r.URL.Query().Get("page-size") != "" {
 						t.Error("page-size must not be sent with page-key")
 						w.WriteHeader(http.StatusBadRequest)
 						return
 					}
-					if r.URL.Query().Get("partialString") != "" {
-						t.Error("partialString must not be sent with page-key")
-						w.WriteHeader(http.StatusBadRequest)
-						return
-					}
-					if r.URL.Query().Get("uuid") != "" {
-						t.Error("uuid must not be sent with page-key")
-						w.WriteHeader(http.StatusBadRequest)
-						return
-					}
 				}
 
-				// Verify query parameters (only on first page)
-				if tt.partialString != "" && r.URL.Query().Get("page-key") == "" {
+				// Verify query parameters are sent on every request (page tokens may not preserve them)
+				if tt.partialString != "" {
 					partial := r.URL.Query().Get("partialString")
 					if partial != tt.partialString {
-						t.Errorf("expected partialString %q, got %q", tt.partialString, partial)
+						t.Errorf("expected partialString %q on every request, got %q", tt.partialString, partial)
 					}
 				}
 
-				if len(tt.uuids) > 0 && r.URL.Query().Get("page-key") == "" {
+				if len(tt.uuids) > 0 {
 					uuidParam := r.URL.Query().Get("uuid")
 					expectedUUIDs := strings.Join(tt.uuids, ",")
 					if uuidParam != expectedUUIDs {
-						t.Errorf("expected uuid %q, got %q", expectedUUIDs, uuidParam)
+						t.Errorf("expected uuid %q on every request, got %q", expectedUUIDs, uuidParam)
 					}
 				}
 
@@ -471,30 +461,20 @@ func TestListGroups(t *testing.T) {
 					return
 				}
 
-				// Simulate API constraint: page-size and filter params must not be combined with page-key
+				// Simulate API constraint: page-size must not be combined with page-key
 				if r.URL.Query().Get("page-key") != "" {
 					if r.URL.Query().Get("page-size") != "" {
 						t.Error("page-size must not be sent with page-key")
 						w.WriteHeader(http.StatusBadRequest)
 						return
 					}
-					if r.URL.Query().Get("partialGroupName") != "" {
-						t.Error("partialGroupName must not be sent with page-key")
-						w.WriteHeader(http.StatusBadRequest)
-						return
-					}
-					if r.URL.Query().Get("uuid") != "" {
-						t.Error("uuid must not be sent with page-key")
-						w.WriteHeader(http.StatusBadRequest)
-						return
-					}
 				}
 
-				// Verify query parameters (only on first page)
-				if tt.partialGroupName != "" && r.URL.Query().Get("page-key") == "" {
+				// Verify query parameters are sent on every request (page tokens may not preserve them)
+				if tt.partialGroupName != "" {
 					partial := r.URL.Query().Get("partialGroupName")
 					if partial != tt.partialGroupName {
-						t.Errorf("expected partialGroupName %q, got %q", tt.partialGroupName, partial)
+						t.Errorf("expected partialGroupName %q on every request, got %q", tt.partialGroupName, partial)
 					}
 				}
 

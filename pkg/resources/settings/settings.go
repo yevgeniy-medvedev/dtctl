@@ -183,23 +183,18 @@ func (h *Handler) ListObjects(schemaID, scope string, chunkSize int64) (*Setting
 	for {
 		req := h.client.HTTP().R()
 
-		// When using nextPageKey, ONLY send the nextPageKey parameter
-		// The API doesn't allow other parameters with nextPageKey
+		// The API rejects requests that combine pageSize with nextPageKey,
+		// but filter params must be sent on every request (page tokens may not preserve them).
 		if nextPageKey != "" {
 			req.SetQueryParam("nextPageKey", nextPageKey)
-		} else {
-			// First request: set filters and page size
-			if schemaID != "" {
-				req.SetQueryParam("schemaIds", schemaID)
-			}
-			if scope != "" {
-				req.SetQueryParam("scopes", scope)
-			}
-
-			// Set page size if chunking is enabled (chunkSize > 0)
-			if chunkSize > 0 {
-				req.SetQueryParam("pageSize", fmt.Sprintf("%d", chunkSize))
-			}
+		} else if chunkSize > 0 {
+			req.SetQueryParam("pageSize", fmt.Sprintf("%d", chunkSize))
+		}
+		if schemaID != "" {
+			req.SetQueryParam("schemaIds", schemaID)
+		}
+		if scope != "" {
+			req.SetQueryParam("scopes", scope)
 		}
 
 		resp, err := req.Get("/platform/classic/environment-api/v2/settings/objects")
@@ -332,19 +327,18 @@ func (h *Handler) getByUID(uid, schemaID, scope string) (*SettingsObject, error)
 	for {
 		req := h.client.HTTP().R()
 
-		// When using nextPageKey, ONLY send the nextPageKey parameter
+		// The API rejects requests that combine pageSize with nextPageKey,
+		// but filter params must be sent on every request (page tokens may not preserve them).
 		if nextPageKey != "" {
 			req.SetQueryParam("nextPageKey", nextPageKey)
 		} else {
-			// First request: set filters and page size
-			if schemaID != "" {
-				req.SetQueryParam("schemaIds", schemaID)
-			}
-			// Only add scope filter if explicitly provided
-			if searchScope != "" {
-				req.SetQueryParam("scopes", searchScope)
-			}
 			req.SetQueryParam("pageSize", fmt.Sprintf("%d", pageSize))
+		}
+		if schemaID != "" {
+			req.SetQueryParam("schemaIds", schemaID)
+		}
+		if searchScope != "" {
+			req.SetQueryParam("scopes", searchScope)
 		}
 
 		resp, err := req.Get("/platform/classic/environment-api/v2/settings/objects")

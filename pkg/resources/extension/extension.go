@@ -153,15 +153,15 @@ func (h *Handler) List(name string, chunkSize int64) (*ExtensionList, error) {
 		var result ExtensionList
 		req := h.client.HTTP().R().SetResult(&result)
 
+		// The API rejects requests that combine page-size with next-page-key,
+		// but filter params must be sent on every request (page tokens may not preserve them).
 		if nextPageKey != "" {
 			req.SetQueryParam("next-page-key", nextPageKey)
-		} else {
-			if name != "" {
-				req.SetQueryParam("name", name)
-			}
-			if chunkSize > 0 {
-				req.SetQueryParam("page-size", fmt.Sprintf("%d", chunkSize))
-			}
+		} else if chunkSize > 0 {
+			req.SetQueryParam("page-size", fmt.Sprintf("%d", chunkSize))
+		}
+		if name != "" {
+			req.SetQueryParam("name", name)
 		}
 
 		resp, err := req.Get("/platform/extensions/v2/extensions")
@@ -315,15 +315,15 @@ func (h *Handler) ListMonitoringConfigurations(extensionName, version string, ch
 		var result MonitoringConfigurationList
 		req := h.client.HTTP().R().SetResult(&result)
 
+		// The API rejects requests that combine page-size with next-page-key,
+		// but filter params must be sent on every request (page tokens may not preserve them).
 		if nextPageKey != "" {
 			req.SetQueryParam("next-page-key", nextPageKey)
-		} else {
-			if version != "" {
-				req.SetQueryParam("version", version)
-			}
-			if chunkSize > 0 {
-				req.SetQueryParam("page-size", fmt.Sprintf("%d", chunkSize))
-			}
+		} else if chunkSize > 0 {
+			req.SetQueryParam("page-size", fmt.Sprintf("%d", chunkSize))
+		}
+		if version != "" {
+			req.SetQueryParam("version", version)
 		}
 
 		resp, err := req.Get(fmt.Sprintf("/platform/extensions/v2/extensions/%s/monitoring-configurations", url.PathEscape(extensionName)))

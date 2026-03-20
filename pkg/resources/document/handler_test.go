@@ -114,18 +114,15 @@ func TestList_Pagination(t *testing.T) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/platform/document/v1/documents", func(w http.ResponseWriter, r *http.Request) {
-		// Simulate API constraint: page-size and filter must not be combined with page-key
-		if r.URL.Query().Get("page-key") != "" {
-			if r.URL.Query().Get("page-size") != "" {
-				t.Error("page-size must not be sent with page-key")
-				w.WriteHeader(http.StatusBadRequest)
-				return
-			}
-			if r.URL.Query().Get("filter") != "" {
-				t.Error("filter must not be sent with page-key")
-				w.WriteHeader(http.StatusBadRequest)
-				return
-			}
+		// Verify filter is sent on every request (page tokens do NOT preserve it)
+		expectedFilter := "type=='dashboard'"
+		if r.URL.Query().Get("filter") != expectedFilter {
+			t.Errorf("expected filter %q on every request, got %q", expectedFilter, r.URL.Query().Get("filter"))
+		}
+
+		// Verify page-size is sent on every request (Document API accepts it with page-key)
+		if r.URL.Query().Get("page-size") == "" {
+			t.Error("page-size must be sent on every request")
 		}
 
 		if pageIndex >= len(pages) {
