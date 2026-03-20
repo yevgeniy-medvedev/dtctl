@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-03-20
+
+### Fixed
+- **Pagination: filter dropped on page 2+** — all paginated list endpoints placed filter/search query parameters inside the first-page-only branch of the pagination loop; page tokens do not always preserve filter context server-side (confirmed on the Document API), causing subsequent pages to return unfiltered results; e.g., `dtctl get dashboards` on environments with many documents fetched all document types instead of just dashboards
+- **Pagination: page-size dropped on page 2+ (Document API)** — the Document API accepts `page-size` alongside `page-key` and does not embed the page size in the token (defaulting to 20/page if omitted); combined with the filter bug, this caused `dtctl get dashboards` on a 1,307-dashboard environment to make ~229 HTTP requests over ~2 minutes instead of 3 requests in ~5 seconds
+- **`--chunk-size` default restored to 500** — reverts the v0.19.0 change that set the default to 0 (first page only), which silently truncated results for all resources; the underlying pagination bugs are now fixed properly
+
+### Changed
+- **Cleaner CLI output** — centralized message formatting with new `PrintHumanError`, `PrintHint`, `DescribeKV`, `DescribeSection` helpers; bold labels in `describe` output; bold `--help` section headers; softer status colors in tables; fixed table header misalignment caused by a `tablewriter` ANSI-width bug
+- **Removed `-o describe` output format** — the redundant `--output describe` format on `get` commands has been removed; use `dtctl describe <resource>` instead
+
 ## [0.19.0] - 2026-03-20
 
 ### Added
