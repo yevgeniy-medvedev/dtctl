@@ -260,3 +260,79 @@ func TestPrintDoctorResults(t *testing.T) {
 	}
 	printDoctorResults(results)
 }
+
+func TestDoctorURLValidation(t *testing.T) {
+	tests := []struct {
+		name       string
+		envURL     string
+		wantStatus string // "ok" or "warn"
+		wantInMsg  string // substring in Detail, if warn
+	}{
+		{
+			name:       "correct apps URL",
+			envURL:     "https://abc12345.apps.dynatrace.com",
+			wantStatus: "ok",
+		},
+		{
+			name:       "live.dynatrace.com URL",
+			envURL:     "https://abc12345.live.dynatrace.com",
+			wantStatus: "warn",
+			wantInMsg:  "live.dynatrace.com",
+		},
+		{
+			name:       "dev without apps",
+			envURL:     "https://deve2e.dev.dynatracelabs.com",
+			wantStatus: "warn",
+			wantInMsg:  "dev.dynatracelabs.com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set up a mock server for connectivity
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer server.Close()
+
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "config")
+
+			originalCfgFile := cfgFile
+			defer func() { cfgFile = originalCfgFile }()
+			cfgFile = configPath
+
+			cfg := config.NewConfig()
+			cfg.SetContext("test", tt.envURL, "test-token")
+			if err := cfg.SetToken("test-token", "dt0c01.ST.test-token-value.test-secret"); err != nil {
+				t.Fatalf("failed to set token: %v", err)
+			}
+			cfg.CurrentContext = "test"
+			if err := cfg.SaveTo(configPath); err != nil {
+				t.Fatalf("failed to save config: %v", err)
+			}
+
+			fastClient := &http.Client{Timeout: 100 * time.Millisecond}
+			results := runDoctorChecksWithClient(fastClient)
+
+			found := false
+			for _, r := range results {
+				if r.Name == "Environment URL" {
+					found = true
+					if r.Status != tt.wantStatus {
+						t.Errorf("expected status %q, got %q: %s", tt.wantStatus, r.Status, r.Detail)
+					}
+					if tt.wantInMsg != "" && !strings.Contains(r.Detail, tt.wantInMsg) {
+						t.Errorf("expected detail to contain %q, got %q", tt.wantInMsg, r.Detail)
+					}
+				}
+			}
+			if !found {
+				t.Error("expected 'Environment URL' check in results")
+				for _, r := range results {
+					t.Logf("  %s: %s: %s", r.Name, r.Status, r.Detail)
+				}
+			}
+		})
+	}
+}

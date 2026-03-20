@@ -1,0 +1,35 @@
+[
+  {
+    "id": "a1b2c3d4-task-0001",
+    "name": "fetch_active_events",
+    "state": "SUCCESS",
+    "startedAt": "2025-03-15T10:30:00Z",
+    "endedAt": "2025-03-15T10:30:05Z",
+    "runtime": 5
+  },
+  {
+    "id": "a1b2c3d4-task-0002",
+    "name": "rca_analysis",
+    "state": "SUCCESS",
+    "startedAt": "2025-03-15T10:30:05Z",
+    "endedAt": "2025-03-15T10:30:12Z",
+    "runtime": 7,
+    "result": {
+      "results": [
+        {
+          "eventStart": "2025-03-15T10:30:00.000Z",
+          "serviceId": "SERVICE-BE4453718DDF0511"
+        }
+      ]
+    }
+  },
+  {
+    "id": "a1b2c3d4-task-0003",
+    "name": "send_notification",
+    "state": "ERROR",
+    "startedAt": "2025-03-15T10:30:12Z",
+    "endedAt": "2025-03-15T10:30:15Z",
+    "runtime": 3,
+    "stateInfo": "HTTP 503 from notification endpoint"
+  }
+]

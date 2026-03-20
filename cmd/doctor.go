@@ -9,6 +9,7 @@ import (
 
 	"github.com/dynatrace-oss/dtctl/pkg/client"
 	"github.com/dynatrace-oss/dtctl/pkg/config"
+	"github.com/dynatrace-oss/dtctl/pkg/diagnostic"
 	"github.com/dynatrace-oss/dtctl/pkg/version"
 )
 
@@ -30,9 +31,10 @@ Checks performed:
   1. dtctl version
   2. Configuration file exists and is valid
   3. Current context is set
-  4. Token is retrievable (keyring or config)
-  5. Environment URL is reachable (HTTP connectivity)
-  6. API authentication works (user identity)`,
+  4. Environment URL pattern is valid (detects common domain mistakes)
+  5. Token is retrievable (keyring or config)
+  6. Environment URL is reachable (HTTP connectivity)
+  7. API authentication works (user identity)`,
 	Example: `  # Run all checks
   dtctl doctor
 
@@ -114,7 +116,28 @@ func runDoctorChecksWithClient(httpClient *http.Client) []checkResult {
 		Detail: fmt.Sprintf("%s (environment: %s, safety: %s)", cfg.CurrentContext, ctx.Environment, safetyLevel),
 	})
 
-	// 4. Token retrieval
+	// 4. Environment URL validation
+	if urlProblems := diagnostic.CheckEnvironmentURL(ctx.Environment); len(urlProblems) > 0 {
+		for _, p := range urlProblems {
+			detail := p.Message
+			if p.SuggestedURL != "" {
+				detail += fmt.Sprintf(". Suggested fix: dtctl ctx set %s --environment %s", cfg.CurrentContext, p.SuggestedURL)
+			}
+			results = append(results, checkResult{
+				Name:   "Environment URL",
+				Status: "warn",
+				Detail: detail,
+			})
+		}
+	} else {
+		results = append(results, checkResult{
+			Name:   "Environment URL",
+			Status: "ok",
+			Detail: "URL pattern looks correct",
+		})
+	}
+
+	// 5. Token retrieval
 	token, tokenErr := client.GetTokenWithOAuthSupport(cfg, ctx.TokenRef)
 	if tokenErr != nil || token == "" {
 		detail := "token not found"
@@ -144,7 +167,7 @@ func runDoctorChecksWithClient(httpClient *http.Client) []checkResult {
 		Detail: fmt.Sprintf("retrieved from %s (%s)", tokenSource, maskedToken),
 	})
 
-	// 5. Environment connectivity
+	// 6. Environment connectivity
 	req, reqErr := http.NewRequest(http.MethodHead, ctx.Environment, nil)
 	if reqErr != nil {
 		results = append(results, checkResult{
@@ -172,7 +195,7 @@ func runDoctorChecksWithClient(httpClient *http.Client) []checkResult {
 		}
 	}
 
-	// 6. API authentication
+	// 7. API authentication
 	c, clientErr := NewClientFromConfig(cfg)
 	if clientErr != nil {
 		results = append(results, checkResult{

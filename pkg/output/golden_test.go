@@ -649,6 +649,108 @@ func TestGolden_GetExecutions(t *testing.T) {
 	}
 }
 
+func taskExecutionFixtures() []workflow.TaskExecution {
+	started1 := fixedTime
+	ended1 := fixedTime.Add(5 * time.Second)
+	started2 := fixedTime.Add(5 * time.Second)
+	ended2 := fixedTime.Add(12 * time.Second)
+	started3 := fixedTime.Add(12 * time.Second)
+	ended3 := fixedTime.Add(15 * time.Second)
+	return []workflow.TaskExecution{
+		{
+			ID:        "a1b2c3d4-task-0001",
+			Name:      "fetch_active_events",
+			State:     "SUCCESS",
+			StartedAt: &started1,
+			EndedAt:   &ended1,
+			Runtime:   5,
+			Result:    nil, // DQL task — no structured return value
+		},
+		{
+			ID:        "a1b2c3d4-task-0002",
+			Name:      "rca_analysis",
+			State:     "SUCCESS",
+			StartedAt: &started2,
+			EndedAt:   &ended2,
+			Runtime:   7,
+			Result: map[string]any{
+				"results": []any{
+					map[string]any{
+						"serviceId":  "SERVICE-BE4453718DDF0511",
+						"eventStart": "2025-03-15T10:30:00.000Z",
+					},
+				},
+			},
+		},
+		{
+			ID:        "a1b2c3d4-task-0003",
+			Name:      "send_notification",
+			State:     "ERROR",
+			StartedAt: &started3,
+			EndedAt:   &ended3,
+			Runtime:   3,
+			StateInfo: func() *string { s := "HTTP 503 from notification endpoint"; return &s }(),
+		},
+	}
+}
+
+func taskResultFixture() any {
+	return map[string]any{
+		"results": []any{
+			map[string]any{
+				"serviceId":  "SERVICE-BE4453718DDF0511",
+				"eventStart": "2025-03-15T10:30:00.000Z",
+			},
+			map[string]any{
+				"serviceId":  "SERVICE-F19A3CC2E0B74E10",
+				"eventStart": "2025-03-15T09:15:00.000Z",
+			},
+		},
+	}
+}
+
+func TestGolden_GetTaskExecutions(t *testing.T) {
+	tasks := taskExecutionFixtures()
+
+	formats := map[string]string{
+		"table": "table",
+		"json":  "json",
+		"yaml":  "yaml",
+		"csv":   "csv",
+	}
+
+	for name, format := range formats {
+		t.Run(name, func(t *testing.T) {
+			var buf bytes.Buffer
+			printer := NewPrinterWithWriter(format, &buf)
+			if err := printer.PrintList(tasks); err != nil {
+				t.Fatalf("PrintList failed: %v", err)
+			}
+			assertGolden(t, "get/task-executions-"+name, buf.String())
+		})
+	}
+}
+
+func TestGolden_GetTaskResult(t *testing.T) {
+	result := taskResultFixture()
+
+	formats := map[string]string{
+		"json": "json",
+		"yaml": "yaml",
+	}
+
+	for name, format := range formats {
+		t.Run(name, func(t *testing.T) {
+			var buf bytes.Buffer
+			printer := NewPrinterWithWriter(format, &buf)
+			if err := printer.Print(result); err != nil {
+				t.Fatalf("Print failed: %v", err)
+			}
+			assertGolden(t, "get/task-result-"+name, buf.String())
+		})
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Golden tests: describe (single-object Print)
 // ---------------------------------------------------------------------------

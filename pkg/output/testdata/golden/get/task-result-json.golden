@@ -1,0 +1,12 @@
+{
+  "results": [
+    {
+      "eventStart": "2025-03-15T10:30:00.000Z",
+      "serviceId": "SERVICE-BE4453718DDF0511"
+    },
+    {
+      "eventStart": "2025-03-15T09:15:00.000Z",
+      "serviceId": "SERVICE-F19A3CC2E0B74E10"
+    }
+  ]
+}

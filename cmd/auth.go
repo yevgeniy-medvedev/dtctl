@@ -11,6 +11,7 @@ import (
 	"github.com/dynatrace-oss/dtctl/pkg/auth"
 	"github.com/dynatrace-oss/dtctl/pkg/client"
 	"github.com/dynatrace-oss/dtctl/pkg/config"
+	"github.com/dynatrace-oss/dtctl/pkg/diagnostic"
 	"github.com/dynatrace-oss/dtctl/pkg/output"
 )
 
@@ -215,6 +216,17 @@ you'll need to use API token authentication instead (dtctl config set-credential
 		// Ensure keyring is available before starting OAuth flow
 		if !config.IsKeyringAvailable() {
 			return fmt.Errorf("OAuth login requires a working system keyring, but none is available; please configure a keyring (or disable keyring usage if supported) and try again, or use an alternative authentication method")
+		}
+
+		// Warn about potentially wrong environment URLs
+		if problems := diagnostic.CheckEnvironmentURL(environment); len(problems) > 0 {
+			for _, p := range problems {
+				fmt.Fprintf(os.Stderr, "Warning: %s\n", p.Message)
+				if p.SuggestedURL != "" {
+					fmt.Fprintf(os.Stderr, "  Did you mean: %s\n", p.SuggestedURL)
+				}
+			}
+			fmt.Fprintln(os.Stderr)
 		}
 
 		// Detect environment and create appropriate OAuth config with safety level

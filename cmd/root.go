@@ -86,13 +86,23 @@ func Execute() {
 			err = enhanceFlagError(rootCmd, err)
 		}
 
+		// Check for URL-related hints (e.g., wrong domain like live.dynatrace.com)
+		urlHints := getURLHintsForError(err)
+
 		if agentMode || plainMode {
 			detail := errorToDetail(err)
+			detail.Suggestions = append(detail.Suggestions, urlHints...)
 			_ = output.PrintError(os.Stderr, detail)
 			os.Exit(exitCodeForError(err))
 		}
 
 		fmt.Fprintf(os.Stderr, "%s %s\n", output.Colorize(output.Bold+output.Red, "Error:"), err)
+		if len(urlHints) > 0 {
+			fmt.Fprintln(os.Stderr)
+			for _, hint := range urlHints {
+				fmt.Fprintf(os.Stderr, "  Hint: %s\n", hint)
+			}
+		}
 		os.Exit(exitCodeForError(err))
 	}
 }
@@ -264,6 +274,55 @@ func classifyGenericError(err error) string {
 	default:
 		return "error"
 	}
+}
+
+// getURLHintsForError checks whether the current context's environment URL
+// has known problems (e.g., live.dynatrace.com instead of apps.dynatrace.com)
+// and returns actionable hints. Only returns hints for errors that could
+// plausibly be caused by a wrong URL (403, 401, connectivity, auth failures).
+func getURLHintsForError(err error) []string {
+	// Only provide URL hints for errors that could be caused by wrong URL
+	if !isURLRelatedError(err) {
+		return nil
+	}
+
+	// Try to load config quietly — if we can't, there's nothing to check
+	cfg, cfgErr := LoadConfig()
+	if cfgErr != nil {
+		return nil
+	}
+	ctx, ctxErr := cfg.CurrentContextObj()
+	if ctxErr != nil {
+		return nil
+	}
+
+	return diagnostic.URLSuggestions(ctx.Environment)
+}
+
+// isURLRelatedError returns true if the error could plausibly be caused by
+// using the wrong environment URL (e.g., 403, 401, connectivity errors).
+func isURLRelatedError(err error) bool {
+	// Check typed errors for status codes
+	var diagErr *diagnostic.Error
+	if errors.As(err, &diagErr) {
+		return diagErr.StatusCode == 401 || diagErr.StatusCode == 403
+	}
+
+	var apiErr *client.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.StatusCode == 401 || apiErr.StatusCode == 403
+	}
+
+	// Check untyped error messages (since resource handlers use fmt.Errorf)
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "access denied") ||
+		strings.Contains(msg, "forbidden") ||
+		strings.Contains(msg, "403") ||
+		strings.Contains(msg, "unauthorized") ||
+		strings.Contains(msg, "401") ||
+		strings.Contains(msg, "cannot reach") ||
+		strings.Contains(msg, "connection refused") ||
+		strings.Contains(msg, "no such host")
 }
 
 // exitCodeForError returns the appropriate process exit code for an error.

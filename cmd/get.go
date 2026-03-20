@@ -38,6 +38,7 @@ Supported resources:
   sdk-versions            analyzers                 copilot-skills
   lookup-tables (lu)      trash                     workflow-executions (wfe)
   wfe-task-result         extensions (ext)          extension-configs (extcfg)
+  documents (doc)
 
 Use 'dtctl get <resource> --help' for resource-specific options.`,
 	Example: `  # List all workflows
@@ -124,6 +125,7 @@ func init() {
 	// Get subcommands (command definitions live in get_*.go files)
 	getCmd.AddCommand(getWorkflowsCmd)
 	getCmd.AddCommand(getWorkflowExecutionsCmd)
+	getCmd.AddCommand(getWfeTaskResultCmd)
 	getCmd.AddCommand(getDashboardsCmd)
 	getCmd.AddCommand(getNotebooksCmd)
 	getCmd.AddCommand(getTrashCmd)
@@ -147,7 +149,6 @@ func init() {
 	getCmd.AddCommand(getExtensionsCmd)
 	getCmd.AddCommand(getExtensionConfigsCmd)
 	getCmd.AddCommand(getDocumentsCmd)
-	getCmd.AddCommand(getWfeTaskResultCmd)
 
 	// Delete subcommands (command definitions live in get_*.go files)
 

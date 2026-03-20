@@ -1,0 +1,30 @@
+- id: a1b2c3d4-task-0001
+  name: fetch_active_events
+  state: SUCCESS
+  startedat: 2025-03-15T10:30:00Z
+  endedat: 2025-03-15T10:30:05Z
+  runtime: 5
+  stateinfo: null
+  input: null
+  result: null
+- id: a1b2c3d4-task-0002
+  name: rca_analysis
+  state: SUCCESS
+  startedat: 2025-03-15T10:30:05Z
+  endedat: 2025-03-15T10:30:12Z
+  runtime: 7
+  stateinfo: null
+  input: null
+  result:
+    results:
+      - eventStart: "2025-03-15T10:30:00.000Z"
+        serviceId: SERVICE-BE4453718DDF0511
+- id: a1b2c3d4-task-0003
+  name: send_notification
+  state: ERROR
+  startedat: 2025-03-15T10:30:12Z
+  endedat: 2025-03-15T10:30:15Z
+  runtime: 3
+  stateinfo: HTTP 503 from notification endpoint
+  input: null
+  result: null

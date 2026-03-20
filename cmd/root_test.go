@@ -896,3 +896,81 @@ func TestExitCodeForError_GenericError(t *testing.T) {
 		t.Errorf("exitCodeForError() = %d, want %d", got, client.ExitError)
 	}
 }
+
+func TestIsURLRelatedError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "diagnostic 403",
+			err:  &diagnostic.Error{StatusCode: 403, Message: "forbidden"},
+			want: true,
+		},
+		{
+			name: "diagnostic 401",
+			err:  &diagnostic.Error{StatusCode: 401, Message: "unauthorized"},
+			want: true,
+		},
+		{
+			name: "diagnostic 404 not URL-related",
+			err:  &diagnostic.Error{StatusCode: 404, Message: "not found"},
+			want: false,
+		},
+		{
+			name: "API error 403",
+			err:  &client.APIError{StatusCode: 403, Message: "forbidden"},
+			want: true,
+		},
+		{
+			name: "API error 500 not URL-related",
+			err:  &client.APIError{StatusCode: 500, Message: "server error"},
+			want: false,
+		},
+		{
+			name: "fmt.Errorf access denied",
+			err:  fmt.Errorf("access denied to workflow %q", "my-wf"),
+			want: true,
+		},
+		{
+			name: "fmt.Errorf forbidden",
+			err:  fmt.Errorf("forbidden: insufficient permissions"),
+			want: true,
+		},
+		{
+			name: "fmt.Errorf 403 status code",
+			err:  fmt.Errorf("request failed: status 403"),
+			want: true,
+		},
+		{
+			name: "fmt.Errorf connection refused",
+			err:  fmt.Errorf("connection refused"),
+			want: true,
+		},
+		{
+			name: "fmt.Errorf no such host",
+			err:  fmt.Errorf("no such host"),
+			want: true,
+		},
+		{
+			name: "generic error not URL-related",
+			err:  errors.New("workflow not found"),
+			want: false,
+		},
+		{
+			name: "wrapped access denied",
+			err:  fmt.Errorf("failed to get workflows: %w", fmt.Errorf("access denied to workflow %q", "my-wf")),
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isURLRelatedError(tt.err)
+			if got != tt.want {
+				t.Errorf("isURLRelatedError() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
