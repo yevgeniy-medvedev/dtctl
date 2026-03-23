@@ -164,7 +164,18 @@ func TestListObjects_Pagination(t *testing.T) {
 	mux.HandleFunc("/platform/classic/environment-api/v2/settings/objects", func(w http.ResponseWriter, r *http.Request) {
 		callCount++
 		w.Header().Set("Content-Type", "application/json")
+
+		// Simulate Settings API constraint: pageSize, schemaIds, and scopes
+		// must NOT be combined with nextPageKey (all are embedded in the page token).
 		if r.URL.Query().Get("nextPageKey") != "" {
+			for _, param := range []string{"pageSize", "schemaIds", "scopes"} {
+				if r.URL.Query().Get(param) != "" {
+					t.Errorf("%s must not be sent with nextPageKey", param)
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprintf(w, `{"error":{"code":400,"message":"Constraints violated.","constraintViolations":[{"path":"%s","message":"must not be used in combination with nextPageKey query parameter."}]}}`, param)
+					return
+				}
+			}
 			// Second page: no more pages
 			json.NewEncoder(w).Encode(SettingsObjectsList{
 				Items:      []SettingsObject{{ObjectID: "obj2", Summary: "Second"}},
@@ -183,6 +194,59 @@ func TestListObjects_Pagination(t *testing.T) {
 	defer cleanup()
 
 	result, err := h.ListObjects("", "", 10) // chunkSize>0 enables pagination
+	if err != nil {
+		t.Fatalf("ListObjects() error = %v", err)
+	}
+	if len(result.Items) != 2 {
+		t.Errorf("expected 2 items across pages, got %d", len(result.Items))
+	}
+	if callCount != 2 {
+		t.Errorf("expected 2 API calls, got %d", callCount)
+	}
+}
+
+func TestListObjects_PaginationWithFilters(t *testing.T) {
+	callCount := 0
+	mux := http.NewServeMux()
+	mux.HandleFunc("/platform/classic/environment-api/v2/settings/objects", func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		w.Header().Set("Content-Type", "application/json")
+
+		// Simulate Settings API constraint: pageSize, schemaIds, and scopes
+		// must NOT be combined with nextPageKey.
+		if r.URL.Query().Get("nextPageKey") != "" {
+			for _, param := range []string{"pageSize", "schemaIds", "scopes"} {
+				if r.URL.Query().Get(param) != "" {
+					t.Errorf("%s must not be sent with nextPageKey", param)
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprintf(w, `{"error":{"code":400,"message":"Constraints violated."}}`)
+					return
+				}
+			}
+			// Second page
+			json.NewEncoder(w).Encode(SettingsObjectsList{
+				Items:      []SettingsObject{{ObjectID: "obj2", SchemaID: "builtin:alerting.profile", Scope: "environment", Summary: "Second"}},
+				TotalCount: 2,
+			})
+		} else {
+			// First page: verify filter params are sent
+			if r.URL.Query().Get("schemaIds") != "builtin:alerting.profile" {
+				t.Errorf("expected schemaIds on first request, got %q", r.URL.Query().Get("schemaIds"))
+			}
+			if r.URL.Query().Get("scopes") != "environment" {
+				t.Errorf("expected scopes on first request, got %q", r.URL.Query().Get("scopes"))
+			}
+			json.NewEncoder(w).Encode(SettingsObjectsList{
+				Items:       []SettingsObject{{ObjectID: "obj1", SchemaID: "builtin:alerting.profile", Scope: "environment", Summary: "First"}},
+				TotalCount:  2,
+				NextPageKey: "page2token",
+			})
+		}
+	})
+	h, cleanup := newTestHandler(t, mux)
+	defer cleanup()
+
+	result, err := h.ListObjects("builtin:alerting.profile", "environment", 10)
 	if err != nil {
 		t.Fatalf("ListObjects() error = %v", err)
 	}

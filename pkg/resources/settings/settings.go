@@ -183,18 +183,20 @@ func (h *Handler) ListObjects(schemaID, scope string, chunkSize int64) (*Setting
 	for {
 		req := h.client.HTTP().R()
 
-		// The API rejects requests that combine pageSize with nextPageKey,
-		// but filter params must be sent on every request (page tokens may not preserve them).
+		// The Settings API rejects ALL other params when nextPageKey is used
+		// (schemaIds, scopes, pageSize are all embedded in the page token).
 		if nextPageKey != "" {
 			req.SetQueryParam("nextPageKey", nextPageKey)
-		} else if chunkSize > 0 {
-			req.SetQueryParam("pageSize", fmt.Sprintf("%d", chunkSize))
-		}
-		if schemaID != "" {
-			req.SetQueryParam("schemaIds", schemaID)
-		}
-		if scope != "" {
-			req.SetQueryParam("scopes", scope)
+		} else {
+			if chunkSize > 0 {
+				req.SetQueryParam("pageSize", fmt.Sprintf("%d", chunkSize))
+			}
+			if schemaID != "" {
+				req.SetQueryParam("schemaIds", schemaID)
+			}
+			if scope != "" {
+				req.SetQueryParam("scopes", scope)
+			}
 		}
 
 		resp, err := req.Get("/platform/classic/environment-api/v2/settings/objects")
@@ -327,18 +329,18 @@ func (h *Handler) getByUID(uid, schemaID, scope string) (*SettingsObject, error)
 	for {
 		req := h.client.HTTP().R()
 
-		// The API rejects requests that combine pageSize with nextPageKey,
-		// but filter params must be sent on every request (page tokens may not preserve them).
+		// The Settings API rejects ALL other params when nextPageKey is used
+		// (schemaIds, scopes, pageSize are all embedded in the page token).
 		if nextPageKey != "" {
 			req.SetQueryParam("nextPageKey", nextPageKey)
 		} else {
 			req.SetQueryParam("pageSize", fmt.Sprintf("%d", pageSize))
-		}
-		if schemaID != "" {
-			req.SetQueryParam("schemaIds", schemaID)
-		}
-		if searchScope != "" {
-			req.SetQueryParam("scopes", searchScope)
+			if schemaID != "" {
+				req.SetQueryParam("schemaIds", schemaID)
+			}
+			if searchScope != "" {
+				req.SetQueryParam("scopes", searchScope)
+			}
 		}
 
 		resp, err := req.Get("/platform/classic/environment-api/v2/settings/objects")

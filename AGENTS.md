@@ -195,13 +195,16 @@ Never put customer names, employee names, usernames, or specific Dynatrace envir
 
 ❌ **Don't** send `page-size` together with `next-page-key`/`page-key` on paginated requests  
 ❌ **Don't** drop filter/search params on subsequent pages — page tokens do NOT always preserve them  
-✅ **Do** use the pagination pattern below: only `page-size` goes in the if/else; filters go outside
+❌ **Don't** send `schemaIds`/`scopes` with `nextPageKey` on Settings API — the page token embeds everything  
+✅ **Do** use the pagination pattern below: only `page-size` goes in the if/else; filters go outside (except Settings API)
 
 ## Pagination Pattern (CRITICAL)
 
 Dynatrace APIs **reject** requests that combine `page-size` with `next-page-key`/`page-key` (HTTP 400). However, **page tokens do NOT always preserve filter parameters** — the Document API is a confirmed example where the `filter` param is dropped on page 2+ if not resent. To be safe, **always resend filter/search params on every page request**, and only exclude `page-size` when a page key is present.
 
 **Exception — Document API**: The Document API (`/platform/document/v1/documents`) does **not** reject `page-size` + `page-key`. It also does **not** embed the page size in the page token (defaulting to 20/page if `page-size` is omitted). For Document API endpoints, send `page-size` on every request alongside `page-key`. See `pkg/resources/document/document.go` for the reference implementation.
+
+**Exception — Settings API**: The Settings API (`/platform/classic/environment-api/v2/settings/objects`) rejects ALL other query params when `nextPageKey` is present — not just `pageSize`, but also `schemaIds` and `scopes` (HTTP 400: "must not be used in combination with nextPageKey query parameter"). The page token embeds everything. For Settings API endpoints, send ONLY `nextPageKey` on page 2+. See `pkg/resources/settings/settings.go` for the reference implementation.
 
 ### Correct pattern (default — most APIs)
 
@@ -242,6 +245,33 @@ for {
     }
 
     resp, err := req.Get("/platform/document/v1/documents")
+    // ... handle response, break if no more pages
+}
+```
+
+### Correct pattern (Settings API — page token embeds ALL params)
+
+```go
+for {
+    req := h.client.HTTP().R().SetResult(&result)
+
+    // Settings API rejects ALL other params when nextPageKey is present
+    // (pageSize, schemaIds, scopes are all embedded in the page token).
+    if nextPageKey != "" {
+        req.SetQueryParam("nextPageKey", nextPageKey)
+    } else {
+        if chunkSize > 0 {
+            req.SetQueryParam("pageSize", fmt.Sprintf("%d", chunkSize))
+        }
+        if schemaID != "" {
+            req.SetQueryParam("schemaIds", schemaID)
+        }
+        if scope != "" {
+            req.SetQueryParam("scopes", scope)
+        }
+    }
+
+    resp, err := req.Get("/platform/classic/environment-api/v2/settings/objects")
     // ... handle response, break if no more pages
 }
 ```
@@ -302,7 +332,23 @@ if r.URL.Query().Get("page-size") != "" && r.URL.Query().Get("page-key") != "" {
 }
 ```
 
-**Reference implementations**: `pkg/resources/document/document.go` (Document API pattern), `pkg/resources/settings/settings.go`, `pkg/resources/extension/extension.go` (default pattern)
+For Settings API mocks, the guard must also reject `schemaIds` and `scopes` with `nextPageKey`:
+
+```go
+// Simulate Settings API constraint: pageSize, schemaIds, and scopes
+// must NOT be combined with nextPageKey (all are embedded in the page token).
+if r.URL.Query().Get("nextPageKey") != "" {
+    for _, param := range []string{"pageSize", "schemaIds", "scopes"} {
+        if r.URL.Query().Get(param) != "" {
+            w.WriteHeader(http.StatusBadRequest)
+            fmt.Fprintf(w, `{"error":{"code":400,"message":"Constraints violated."}}`)
+            return
+        }
+    }
+}
+```
+
+**Reference implementations**: `pkg/resources/document/document.go` (Document API pattern), `pkg/resources/settings/settings.go` (Settings API pattern), `pkg/resources/extension/extension.go` (default pattern)
 
 ## Code Examples
 
