@@ -22,6 +22,8 @@ dtctl exec copilot nl2dql "error logs from last hour"
 
 > **Early Development**: This project is in active development. If you encounter any bugs or issues, please [file a GitHub issue](https://github.com/dynatrace-oss/dtctl/issues/new). Contributions and feedback are welcome!
 
+**[Installation](docs/INSTALLATION.md)** · **[Getting Started](docs/QUICK_START.md)**
+
 ## Why dtctl?
 
 - **Built for AI agents** — Predictable verb-noun commands, structured output (`--plain`, `-o json`, `--agent`), machine-readable command catalog (`dtctl commands`), and YAML-based editing make dtctl a natural tool for LLM-driven automation
@@ -69,7 +71,14 @@ Compatible with GitHub Copilot, Claude Code, Cursor, Kiro, Junie, OpenCode, Open
 ```bash
 # Install via Homebrew (macOS/Linux)
 brew install dynatrace-oss/tap/dtctl
+```
 
+```powershell
+# Install via PowerShell (Windows)
+irm https://raw.githubusercontent.com/dynatrace-oss/dtctl/main/install.ps1 | iex
+```
+
+```bash
 # Or download a binary: https://github.com/dynatrace-oss/dtctl/releases/latest
 # Or build from source: git clone https://github.com/dynatrace-oss/dtctl.git && cd dtctl && make install
 
