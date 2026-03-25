@@ -212,6 +212,12 @@ Examples:
 			if err := printer.Print(result); err != nil {
 				return fmt.Errorf("failed to print YAML output: %w", err)
 			}
+		case "toon":
+			// Print full DQLVerifyResponse as TOON
+			printer := output.NewPrinter("toon")
+			if err := printer.Print(result); err != nil {
+				return fmt.Errorf("failed to print TOON output: %w", err)
+			}
 		default:
 			// Default: human-readable format
 			if err := formatVerifyResultHuman(result, query, canonical); err != nil {
