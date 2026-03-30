@@ -86,7 +86,8 @@ irm https://raw.githubusercontent.com/dynatrace-oss/dtctl/main/install.ps1 | iex
 ```
 
 ```bash
-# Or build from source: git clone https://github.com/dynatrace-oss/dtctl.git && cd dtctl && make install
+# Or build from source:
+git clone https://github.com/dynatrace-oss/dtctl.git && cd dtctl && make install
 
 # Authenticate via OAuth (recommended — no token management needed)
 dtctl auth login --context my-env --environment "https://abc12345.apps.dynatrace.com"
